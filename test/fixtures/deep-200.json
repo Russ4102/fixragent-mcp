@@ -1,0 +1,539 @@
+{
+  "source": "docs/fixragent-triage-api.postman_collection.json on origin/main 5fdf8f9d, request \"Triage a photo — five reads (config=deep)\", response \"200 — five of five reads agreed, WHENEVER (engine-v2.deep.gemini-3-5-flash-lite.a1_rubric_v11.n5)\"; recaptured 14 Sep 2026 (BLOCK-157 T2c fix round 1) from that file, no production call. Replaces the fallback-era nine-read capture.",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store"
+  },
+  "body": {
+    "diagnosis_id": "2a0a447e-9ef1-4ec2-bde0-46ef5e7088bb",
+    "engine_version": "engine-v2-vote-1.0.0",
+    "rubric_version": "v1.1-2026-09-11",
+    "config_id": "engine-v2.deep.gemini-3-5-flash-lite.a1_rubric_v11.n5",
+    "config_source": {
+      "candidates_file": "api/_engine-v2-candidates.json",
+      "candidates_file_present": true,
+      "requested": "deep",
+      "fallback_used": false,
+      "fallback_reason": null,
+      "warning": null,
+      "vote": true
+    },
+    "agreement": {
+      "mode": "deep",
+      "n": 5,
+      "k": 5,
+      "decided": true,
+      "votes": {
+        "fault": 0,
+        "no_fault": 5,
+        "no_verdict": 0
+      },
+      "vote_rule": "decided when the majority verdict has k >= ceil(n/2) parsed votes; n = reads attempted, failed reads count in n and never in k; a tie is never decided; undecided re-votes once",
+      "re_voted": false,
+      "reported_round": 1,
+      "rounds": [
+        {
+          "round": 1,
+          "n": 5,
+          "reads_parsed": 5,
+          "read_failures": [],
+          "k": 5,
+          "decided": true,
+          "votes": {
+            "fault": 0,
+            "no_fault": 5,
+            "no_verdict": 0
+          },
+          "reason": "k >= ceil(n/2)",
+          "reported": true
+        }
+      ],
+      "reads_attempted_total": 5,
+      "majority_verdict": false,
+      "need": 3,
+      "verdict_field": "grounded fault_detected (contract R1 visible-in-photo + R3 taxonomy class and summary), majority per a2_selfcons_v11 over parsed reads",
+      "delivered_matches_majority": true,
+      "applicable": true
+    },
+    "callback_url": "/api/outcome?diagnosis_id=2a0a447e-9ef1-4ec2-bde0-46ef5e7088bb",
+    "callback": {
+      "method": "POST",
+      "url": "/api/outcome",
+      "note": "api/outcome.js reads diagnosis_id from the JSON BODY on POST; the query string on callback_url is there so the link identifies the diagnosis to a human and in logs, not because the endpoint reads it.",
+      "required_body": {
+        "diagnosis_id": "2a0a447e-9ef1-4ec2-bde0-46ef5e7088bb",
+        "outcome": [
+          "fixed",
+          "not_fixed",
+          "partial"
+        ],
+        "reported_via": [
+          "results_screen",
+          "scan_log",
+          "triage_link"
+        ]
+      }
+    },
+    "core": {
+      "is_building_asset": true,
+      "asset_type": "Gas Furnace and Air Handler",
+      "asset_category": "HVAC",
+      "photo_subject": "Gas furnace and air handler unit in mechanical room",
+      "report_photo_agreement": null,
+      "fault_detected": false,
+      "fault_visible_in_photo": false,
+      "fault_summary": "",
+      "fault_classes": [],
+      "severity": "P4",
+      "tier": "WHENEVER",
+      "criterion_1_fired": false,
+      "tier_forced_by": null,
+      "visible_wiring": false,
+      "water_near_electrical": false,
+      "safety_hazard": false,
+      "hazard_detail": null,
+      "trade_required": null,
+      "confidence": 1,
+      "resident_explanation": "Your HVAC unit is currently operating normally with no visible signs of damage, leaks, or electrical hazards."
+    },
+    "extended": {
+      "isHighRisk": false,
+      "hazard_class": "H0",
+      "active_loss": "L0",
+      "habitability": "C0",
+      "deferral_cost": "D0",
+      "severity_reason_row": 7,
+      "make_model": null,
+      "identification_reasoning": "Furnace cabinet, evaporator coil plenum, and metallic ductwork clearly visible.",
+      "observations": [
+        {
+          "label": "Furnace",
+          "box": [
+            676,
+            237,
+            1000,
+            824
+          ],
+          "confidence": 0.98
+        },
+        {
+          "label": "Air Handler",
+          "box": [
+            336,
+            264,
+            680,
+            796
+          ],
+          "confidence": 0.98
+        },
+        {
+          "label": "Ductwork",
+          "box": [
+            0,
+            0,
+            350,
+            999
+          ],
+          "confidence": 0.98
+        }
+      ],
+      "loto_required": false,
+      "skill_level": null,
+      "diy_appropriate": false,
+      "estimated_duration_minutes": 0,
+      "parts_manifest": [],
+      "resident_why_it_matters": "Regular maintenance prevents unexpected breakdowns and extends equipment lifespan.",
+      "resident_do_not": null,
+      "resident_what_happens_next": "Continue normal operation and routine filter replacements.",
+      "root_cause": null,
+      "failure_mechanism": null,
+      "differential": [],
+      "wiring_water_reason": "none visible; none visible"
+    },
+    "contract_validation": {
+      "contract_version": "v1-DRAFT-2026-09-10",
+      "policy": "repair-and-record",
+      "policy_note": "A violation is REPAIRED and the repair is listed below. Repairs never invent a photo-grounded fact, a taxonomy class or prose; where the engine gave no support for an assertion the assertion is retracted and preserved under `retracted`. If any violation survives repair the whole response is refused (502 contract_unrepairable) rather than emitted.",
+      "rules_source": {
+        "file": "qa/engine-v2/CONTRACT-v1.json",
+        "rules_in_contract": 8,
+        "predicates_implemented": 8,
+        "drift": [],
+        "schema_fields_in_contract": 51,
+        "schema_keywords_enforced": [
+          "type",
+          "enum",
+          "pattern",
+          "minimum",
+          "maximum",
+          "minLength",
+          "minItems",
+          "maxItems",
+          "uniqueItems",
+          "items",
+          "properties",
+          "required",
+          "additionalProperties"
+        ],
+        "schema_keywords_ignored_as_annotation": [
+          "$schema",
+          "$id",
+          "title",
+          "description",
+          "format"
+        ],
+        "shape_drift": []
+      },
+      "scope_checked": {
+        "extended_requested": true,
+        "has_report": false,
+        "clauses_not_evaluated": [],
+        "core_fields_not_governed_by_contract": [
+          "tier",
+          "criterion_1_fired",
+          "tier_forced_by",
+          "visible_wiring",
+          "water_near_electrical"
+        ],
+        "contract_required_fields_this_door_does_not_emit": [
+          "category",
+          "diagnosis",
+          "difficulty",
+          "rootCause",
+          "materials",
+          "steps",
+          "proTip",
+          "estimatedDIYCost",
+          "estimatedProCost",
+          "youtubeVideoId"
+        ],
+        "contract_required_scope_note": "json_schema.required is the CONSUMER surface’s required set (the PWA render keys). This door emits core + extended, a different projection; the fields listed above are surfaces this door is not, and their absence is not a violation. Every contract-required field the door DOES emit is checked."
+      },
+      "violations_found": [],
+      "shape_violations_found": [],
+      "contract_conflicts": [],
+      "repairs": [],
+      "exemptions": [],
+      "retracted": {},
+      "repairs_changed_severity": false,
+      "severity_before_repair": "P4",
+      "conformant": true,
+      "residual_violations": [],
+      "severity_after_repair": "P4"
+    },
+    "provenance": {
+      "contract_version": "v1-DRAFT-2026-09-10",
+      "models": {
+        "identification": "gemini-3.5-flash-lite",
+        "reasoning": "gemini-3.5-flash-lite"
+      },
+      "temperature": 0.2,
+      "prompt_hash": "b52b0e83c8d01ccb",
+      "prompt_base": "api/_engine-v2-fast.json system_prompt (sha256 93f5cb191f1c14d46ab33a003622fe94e32feb069e29c61fb69c3c0be70d3f56) + user_text — the run-2 a1_rubric_v11 export, held to the harness by qa/engine-v2-fast/check-export-drift.py; the resident report, when sent, rides in the user text (api/_engine-v2-fast.js USER_TEXT_WITH_REPORT, unmeasured variant)",
+      "agreement": {
+        "mode": "deep",
+        "n": 5,
+        "k": 5,
+        "decided": true,
+        "votes": {
+          "fault": 0,
+          "no_fault": 5,
+          "no_verdict": 0
+        },
+        "vote_rule": "decided when the majority verdict has k >= ceil(n/2) parsed votes; n = reads attempted, failed reads count in n and never in k; a tie is never decided; undecided re-votes once",
+        "re_voted": false,
+        "reported_round": 1,
+        "rounds": [
+          {
+            "round": 1,
+            "n": 5,
+            "reads_parsed": 5,
+            "read_failures": [],
+            "k": 5,
+            "decided": true,
+            "votes": {
+              "fault": 0,
+              "no_fault": 5,
+              "no_verdict": 0
+            },
+            "reason": "k >= ceil(n/2)",
+            "reported": true
+          }
+        ],
+        "reads_attempted_total": 5,
+        "majority_verdict": false,
+        "need": 3,
+        "verdict_field": "grounded fault_detected (contract R1 visible-in-photo + R3 taxonomy class and summary), majority per a2_selfcons_v11 over parsed reads",
+        "delivered_matches_majority": true,
+        "applicable": true
+      },
+      "prompt_addendum": "none — the RUBRIC v1.1 axes and criterion-1 facts are asked for by the exported system prompt and enforced by responseSchema (sha256 559265bb8d66ae4fbe98d756b0f574fb51a042997388c4b58ff630071a04991b); the model is never asked for severity or tier",
+      "latency_ms": 4706,
+      "photo_sha256": "a4232950f74c029d219eacff3d0f84ad86744c3c584b3c2fdafb49afbfeed913",
+      "exif_strip_version": "exif-strip-v3-2026-09-11",
+      "model_proposed_severity": null,
+      "severity_assigned_by": "server:RUBRIC-v1.1-2026-09-11 via a2_selfcons_v11 vote (assignSeverityV11 on the voted facts)",
+      "severity_overwritten": false,
+      "spend_today": {
+        "computed_usd": 0.027553,
+        "limit_usd": 20,
+        "limit_source": "default",
+        "basis": "computed_from_usage_tokens_x_declared_prices_not_metered; scope=this_warm_instance_only (in-process counter; cross-instance day spend is under-counted by up to the number of warm instances)",
+        "token_estimate": true
+      },
+      "vote": {
+        "candidate": "a1_rubric_v11",
+        "n": 5,
+        "rounds": [
+          {
+            "round": 1,
+            "n": 5,
+            "reads_parsed": 5,
+            "read_failures": [],
+            "k": 5,
+            "decided": true,
+            "votes": {
+              "fault": 0,
+              "no_fault": 5,
+              "no_verdict": 0
+            },
+            "reason": "k >= ceil(n/2)",
+            "reported": true
+          }
+        ],
+        "tally": {
+          "n_votes_parsed": 5,
+          "n_asked": 5,
+          "fault_detected": {
+            "true": 0,
+            "n": 5,
+            "voted": false
+          },
+          "is_building_asset": {
+            "true": 5,
+            "n": 5,
+            "voted": true
+          },
+          "n_agreeing": 5,
+          "base_pool": "raw-matching agreeing reads",
+          "rubric_axes_pool": {
+            "indices": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "rule": "all reads"
+          },
+          "fault_classes": {
+            "counts": {},
+            "voted": []
+          },
+          "safety_hazard": {
+            "true": 0,
+            "n": 5,
+            "voted": false
+          },
+          "fault_visible_in_photo": {
+            "true": 0,
+            "n": 5,
+            "voted": false
+          },
+          "rubric_axes": {
+            "hazard_class": {
+              "counts": {
+                "H0": 5
+              },
+              "voted": "H0",
+              "tie_rule": "outright"
+            },
+            "active_loss": {
+              "counts": {
+                "L0": 5
+              },
+              "voted": "L0",
+              "tie_rule": "outright"
+            },
+            "habitability": {
+              "counts": {
+                "C0": 5
+              },
+              "voted": "C0",
+              "tie_rule": "outright"
+            },
+            "deferral_cost": {
+              "counts": {
+                "D0": 5
+              },
+              "voted": "D0",
+              "tie_rule": "outright"
+            }
+          },
+          "criterion_1": {
+            "visible_wiring": {
+              "true": 0,
+              "n": 5,
+              "voted": false,
+              "tie_rule": "tie -> FALSE (v1.1 §2.1 uncertain does not fire)"
+            },
+            "water_near_electrical": {
+              "true": 0,
+              "n": 5,
+              "voted": false,
+              "tie_rule": "tie -> FALSE (v1.1 §2.1 uncertain does not fire)"
+            }
+          },
+          "base_vote_index": 0,
+          "fault_prose_cleared": [],
+          "confidence_agreement_fraction": 1,
+          "decision": {
+            "n": 5,
+            "k": 5,
+            "need": 3,
+            "decided": true,
+            "votes": {
+              "fault": 0,
+              "no_fault": 5,
+              "no_verdict": 0
+            },
+            "majority_verdict": false,
+            "reason": "k >= ceil(n/2)"
+          }
+        },
+        "rubric": {
+          "rubric_version": "v1.1-2026-09-11",
+          "rubric_v11_sha256": "f5968d73f21b1488da9fb25b1568ed7efdfa7cc888b4cec56b20c2b72a4ee951",
+          "rubric_axes": {
+            "hazard_class": "H0",
+            "active_loss": "L0",
+            "habitability": "C0",
+            "deferral_cost": "D0",
+            "hazard_reason": "none visible",
+            "active_loss_reason": "none visible",
+            "habitability_reason": "none visible",
+            "deferral_reason": "none visible"
+          },
+          "rubric_axes_invalid": {},
+          "criterion_1": {
+            "visible_wiring": false,
+            "water_near_electrical": false,
+            "visible_wiring_reason": "none visible",
+            "water_near_electrical_reason": "none visible"
+          },
+          "criterion_1_invalid": {},
+          "criterion_1_fired": false,
+          "criterion_1_facts_fired": [],
+          "severity_reason_row": 7,
+          "step": "2:v1-row-7",
+          "rubric_p_uncapped": "P4",
+          "severity_capped_by": null,
+          "tier_forced_by": null,
+          "illegal_p1_no_fault": false,
+          "severity_source": "assignSeverityV11 on VOTED facts (never voted, never model-emitted)",
+          "per_vote_severity": [
+            "P4",
+            "P4",
+            "P4",
+            "P4",
+            "P4"
+          ],
+          "severity_final": "P4",
+          "tier_final": "WHENEVER"
+        },
+        "per_read": [
+          {
+            "fault_detected": false,
+            "fault_visible_in_photo": false,
+            "fault_classes": [],
+            "severity": "P4",
+            "tier": "WHENEVER",
+            "criterion_1_fired": false,
+            "is_building_asset": true,
+            "finish_reason": "STOP",
+            "attempts": 1,
+            "latency_ms": 4427,
+            "usage": {
+              "prompt_tokens": 9572,
+              "output_tokens": 1022
+            }
+          },
+          {
+            "fault_detected": false,
+            "fault_visible_in_photo": false,
+            "fault_classes": [],
+            "severity": "P4",
+            "tier": "WHENEVER",
+            "criterion_1_fired": false,
+            "is_building_asset": true,
+            "finish_reason": "STOP",
+            "attempts": 1,
+            "latency_ms": 4553,
+            "usage": {
+              "prompt_tokens": 9572,
+              "output_tokens": 995
+            }
+          },
+          {
+            "fault_detected": false,
+            "fault_visible_in_photo": false,
+            "fault_classes": [],
+            "severity": "P4",
+            "tier": "WHENEVER",
+            "criterion_1_fired": false,
+            "is_building_asset": true,
+            "finish_reason": "STOP",
+            "attempts": 1,
+            "latency_ms": 4253,
+            "usage": {
+              "prompt_tokens": 9572,
+              "output_tokens": 1046
+            }
+          },
+          {
+            "fault_detected": false,
+            "fault_visible_in_photo": false,
+            "fault_classes": [],
+            "severity": "P4",
+            "tier": "WHENEVER",
+            "criterion_1_fired": false,
+            "is_building_asset": true,
+            "finish_reason": "STOP",
+            "attempts": 1,
+            "latency_ms": 4673,
+            "usage": {
+              "prompt_tokens": 9572,
+              "output_tokens": 1077
+            }
+          },
+          {
+            "fault_detected": false,
+            "fault_visible_in_photo": false,
+            "fault_classes": [],
+            "severity": "P4",
+            "tier": "WHENEVER",
+            "criterion_1_fired": false,
+            "is_building_asset": true,
+            "finish_reason": "STOP",
+            "attempts": 1,
+            "latency_ms": 4268,
+            "usage": {
+              "prompt_tokens": 9572,
+              "output_tokens": 1138
+            }
+          }
+        ],
+        "read_failures": [],
+        "confidence_definition": "agreement fraction on the fault verdict over the reads that parsed (a2_selfcons_v11) — a vote count, not a model number"
+      }
+    },
+    "stored": {
+      "written": false,
+      "degraded": false,
+      "reason": "supabase_not_configured",
+      "table": "diy_guest_scans"
+    },
+    "warnings": []
+  }
+}

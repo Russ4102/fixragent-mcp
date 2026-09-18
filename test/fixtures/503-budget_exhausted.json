@@ -1,0 +1,22 @@
+{
+  "source": "docs/fixragent-triage-api.postman_collection.json on /root/fixr-149-docs (branch feat/api-launch-kit-2026-09-13), response \"503 budget_exhausted \u2014 the daily spend fuse tripped (Retry-After to 00:00 UTC)\"; captured from the handler by qa/api-launch-kit/build-postman.js",
+  "status": 503,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "retry-after": "57600"
+  },
+  "body": {
+    "error": "budget_exhausted",
+    "message": "The triage demo has used up its compute budget for today. This is a spending limit on our side, not a problem with your photo or your request. The budget resets at 00:00 UTC \u2014 please try again then.",
+    "resets_at": "2026-09-14T00:00:00.000Z",
+    "budget": {
+      "day": "2026-09-13",
+      "computed_usd": 21,
+      "limit_usd": 20,
+      "limit_source": "default",
+      "basis": "computed_from_usage_tokens_x_declared_prices_not_metered; scope=this_warm_instance_only (in-process counter; cross-instance day spend is under-counted by up to the number of warm instances)"
+    },
+    "retry_after_seconds": 57600,
+    "retry_after_basis": "utc_day"
+  }
+}

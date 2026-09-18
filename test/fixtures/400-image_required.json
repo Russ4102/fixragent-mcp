@@ -1,0 +1,11 @@
+{
+  "source": "docs/fixragent-triage-api.postman_collection.json on /root/fixr-149-docs (branch feat/api-launch-kit-2026-09-13), response \"400 image_required \u2014 no \"image\" field\"; captured from the handler by qa/api-launch-kit/build-postman.js",
+  "status": 400,
+  "headers": {
+    "content-type": "application/json; charset=utf-8"
+  },
+  "body": {
+    "error": "image_required",
+    "message": "A photo is required. Send it as base64 in the \"image\" field."
+  }
+}

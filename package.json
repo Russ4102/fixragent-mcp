@@ -1,0 +1,27 @@
+{
+  "name": "fixragent-mcp",
+  "version": "0.1.0",
+  "description": "One MCP tool, triage_photo: send a maintenance photo to fixragent.com/api/triage and get the fixed JSON triage back.",
+  "mcpName": "io.github.Russ4102/fixragent-mcp",
+  "license": "MIT",
+  "author": "ARLogic LLC",
+  "homepage": "https://fixragent.com/docs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Russ4102/fixragent-mcp.git"
+  },
+  "keywords": ["mcp", "model-context-protocol", "fixragent", "triage", "maintenance", "landlord", "property-management"],
+  "bin": { "fixragent-mcp": "server.js" },
+  "main": "server.js",
+  "files": ["server.js", "README.md", "server.json", "LICENSE"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node test/run.mjs",
+    "test:live": "node test/run.mjs --live"
+  },
+  "publishConfig": { "access": "public" },
+  "dependencies": {},
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0"
+  }
+}

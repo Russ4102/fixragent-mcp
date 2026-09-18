@@ -1,0 +1,20 @@
+{
+  "source": "docs/fixragent-triage-api.postman_collection.json on /root/fixr-149-docs (branch feat/api-launch-kit-2026-09-13), response \"413 image_too_large \u2014 decoded photo over 3,145,728 bytes\"; captured from the handler by qa/api-launch-kit/build-postman.js",
+  "status": 413,
+  "headers": {
+    "content-type": "application/json; charset=utf-8"
+  },
+  "body": {
+    "error": "image_too_large",
+    "message": "That photo is larger than 3MB. Please send a smaller one.",
+    "max_photo_bytes": 3145728,
+    "platform_request_body_limit": {
+      "bytes": 4500000,
+      "stated_as": "4.5 MB",
+      "source": "https://vercel.com/docs/functions/limitations",
+      "source_last_updated": "August 24, 2026",
+      "fetched": "2026-09-11",
+      "evidence": "cited from vendor documentation fetched on this date \u2014 NOT measured against a deployed function (nothing deploys from this branch)"
+    }
+  }
+}

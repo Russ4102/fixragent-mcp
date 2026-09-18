@@ -1,0 +1,33 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Russ4102/fixragent-mcp",
+  "title": "fixRAgent triage",
+  "description": "One tool, triage_photo: a maintenance photo in, the fixed JSON triage out, from fixragent.com.",
+  "repository": {
+    "url": "https://github.com/Russ4102/fixragent-mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "websiteUrl": "https://fixragent.com/docs?source=listing-mcp-registry",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "fixragent-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "FIXRAGENT_API_KEY",
+          "description": "Your demo key, requested at https://fixragent.com/docs#key. Sent as the x-triage-key header on every call.",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

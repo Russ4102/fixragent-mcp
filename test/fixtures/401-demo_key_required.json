@@ -1,0 +1,11 @@
+{
+  "source": "docs/fixragent-triage-api.postman_collection.json on /root/fixr-149-docs (branch feat/api-launch-kit-2026-09-13), response \"401 demo_key_required \u2014 wrong or missing x-triage-key\"; captured from the handler by qa/api-launch-kit/build-postman.js",
+  "status": 401,
+  "headers": {
+    "content-type": "application/json; charset=utf-8"
+  },
+  "body": {
+    "error": "demo_key_required",
+    "message": "A demo key is required. Send it as the x-triage-key header."
+  }
+}
