@@ -225,7 +225,7 @@ the link can open — treat the link as you would the photograph. To have a diag
 never quoted in an error — a key that cannot go into a header produces a fixed `KEY_UNSENDABLE` sentence instead
 of Node's own message, which would otherwise contain it.
 
-**Contact.** support@fixragent.com · legal@fixragent.com · https://fixragent.com/support
+**Contact.** support@fixragent.com · legal@fixragent.com · https://fixragent.com/help
 AR Logic LLC, Ohio, United States.
 
 ## Test it
