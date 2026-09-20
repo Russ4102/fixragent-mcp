@@ -100,7 +100,7 @@ const TOOL = {
   description:
     'Send one photo of something in a building to fixragent.com and get the fixed JSON triage back: what it is, ' +
     'whether a fault is visible, one of four urgency words (EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to ' +
-    'call, a line to say to the tenant, and how many reads agreed. Spends one request on the demo key (60 a day). ' +
+    'call, a line to say to the tenant, and how many reads agreed. Each call spends one request against your key\'s quota. ' +
     'Returns a diagnosis_id, a share_url for the profile, and a callback_url for reporting what actually happened. ' +
     'Give either image_path (a file on this machine) or image_base64, never both. JPEG, PNG or WebP, at most 3 MB.',
   inputSchema: {

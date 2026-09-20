@@ -2,7 +2,7 @@
 
 One MCP tool, `triage_photo`, in front of `https://fixragent.com/api/triage`.
 
-fixRAgent triages a maintenance photo in ten seconds: what it is, how urgent, who to call, what to say right now. This server lets an agent — Claude Desktop, Claude Code, Cursor, or any client that speaks the Model Context Protocol — send a photo and get the same fixed JSON the API returns, plus a link to the Triage Profile.
+fixRAgent reads a maintenance photo and tells you what it is, how urgent it is, who to call, and what to say right now. This server lets an agent — Claude Desktop, Claude Code, Cursor, or any client that speaks the Model Context Protocol — send a photo and get the same fixed JSON the API returns, plus a link to the Triage Profile.
 
 - One file, `server.js`. No runtime dependencies. Node 20 or newer.
 - Speaks MCP over stdio in both eras: the `initialize` handshake every shipping client uses today (2025-11-25 back to 2024-11-05) and the per-request `_meta` form of the 2026-07-28 revision (`server/discover`, `resultType`).
@@ -214,12 +214,14 @@ stripped image and a triage row carrying `role` and `variant`, so that the profi
 callback can be served.
 
 **Third parties, and what each holds.** The photograph is read by the model provider's API
-(`generativelanguage.googleapis.com`). **The engine provider keeps prompt, response and photo for 55 days.**
-Hosting is Vercel; the database is Supabase. Nothing is sold, and nothing is shared for advertising.
+(`generativelanguage.googleapis.com`), **which keeps the prompt, the photo and the answer for 55 days under its
+own terms.** The complete and authoritative list of everyone who handles the data, and why, is the processor
+table in the policy at https://fixragent.com/privacy — **that table governs; this paragraph only summarises the
+part a caller of this server touches.** Nothing is sold, and nothing is shared for advertising.
 
 **Retention and your control.** `share_url` (`https://fixragent.com/c/<diagnosis_id>`) is a page anyone holding
 the link can open — treat the link as you would the photograph. To have a diagnosis removed, send its
-`diagnosis_id` to support@fixragent.com. The rest of the retention terms are in the published policy.
+`diagnosis_id` to **legal@fixragent.com** — the address the published policy routes deletion requests to. The rest of the retention terms are in that policy.
 
 **Your key.** Read from `FIXRAGENT_API_KEY` at call time; never written to a file, to stdout or to stderr, and
 never quoted in an error — a key that cannot go into a header produces a fixed `KEY_UNSENDABLE` sentence instead

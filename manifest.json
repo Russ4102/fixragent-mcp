@@ -18,14 +18,25 @@
     "url": "https://github.com/Russ4102/fixragent-mcp"
   },
   "license": "MIT",
-  "keywords": ["maintenance", "property-management", "triage", "photo", "buildings", "facilities"],
-  "privacy_policies": ["https://fixragent.com/privacy"],
+  "keywords": [
+    "maintenance",
+    "property-management",
+    "triage",
+    "photo",
+    "buildings",
+    "facilities"
+  ],
+  "privacy_policies": [
+    "https://fixragent.com/privacy"
+  ],
   "server": {
     "type": "node",
     "entry_point": "server.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/server.js"],
+      "args": [
+        "${__dirname}/server.js"
+      ],
       "env": {
         "FIXRAGENT_API_KEY": "${user_config.api_key}"
       }
@@ -43,14 +54,19 @@
   "tools": [
     {
       "name": "triage_photo",
-      "description": "Reads one maintenance photo and returns the Triage Profile: the asset, whether a fault is visible, the severity and tier, the trade required, and what to tell the resident."
+      "description": "Send one photo of something in a building to fixragent.com and get the fixed JSON triage back: what it is, whether a fault is visible, one of four urgency words (EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to call, a line to say to the tenant, and how many reads agreed. Each call spends one request against your key's quota. Returns a diagnosis_id, a share_url for the profile, and a callback_url for reporting what actually happened. Give either image_path (a file on this machine) or image_base64, never both. JPEG, PNG or WebP, at most 3 MB."
     }
   ],
   "compatibility": {
     "claude_desktop": ">=0.10.0",
-    "platforms": ["darwin", "win32", "linux"],
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
     "runtimes": {
       "node": ">=20.0.0"
     }
-  }
+  },
+  "icon": "icon.png"
 }
