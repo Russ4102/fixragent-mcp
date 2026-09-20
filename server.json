@@ -8,7 +8,7 @@
     "source": "github"
   },
   "version": "0.1.0",
-  "websiteUrl": "https://fixragent.com/docs?source=listing-mcp-registry",
+  "websiteUrl": "https://fixragent.com/docs?utm_source=mcp_registry&utm_medium=listing",
   "packages": [
     {
       "registryType": "npm",

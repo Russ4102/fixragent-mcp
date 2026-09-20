@@ -1,0 +1,56 @@
+{
+  "manifest_version": "0.3",
+  "name": "fixragent-mcp",
+  "display_name": "fixRAgent triage",
+  "version": "0.1.0",
+  "description": "Send a maintenance photo and get a Triage Profile back: what the asset is, whether a fault is visible, how urgent it is, and which trade to call.",
+  "long_description": "fixRAgent reads one photograph of a building asset and returns a Triage Profile as fixed JSON: what the asset is, whether a fault is visible in the photo, the severity and tier assigned in code from a published rubric, the trade required, and a sentence to say to the resident. Every reply carries the engine and rubric versions it was produced by, a diagnosis id, and a link to the profile.\n\nThe server exposes one tool, `triage_photo`, in front of the same public API the web door and the direct API callers use. It adds no second engine and no second prompt.\n\nA key is required and is read from the `FIXRAGENT_API_KEY` environment variable. It is sent as the `x-triage-key` header and is never written to a file, to stdout or to stderr.",
+  "author": {
+    "name": "AR Logic LLC",
+    "email": "support@fixragent.com",
+    "url": "https://fixragent.com"
+  },
+  "homepage": "https://fixragent.com",
+  "documentation": "https://fixragent.com/docs?utm_source=mcpb_directory&utm_medium=listing",
+  "support": "https://fixragent.com/support?utm_source=mcpb_directory&utm_medium=listing",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Russ4102/fixragent-mcp"
+  },
+  "license": "MIT",
+  "keywords": ["maintenance", "property-management", "triage", "photo", "buildings", "facilities"],
+  "privacy_policies": ["https://fixragent.com/privacy"],
+  "server": {
+    "type": "node",
+    "entry_point": "server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server.js"],
+      "env": {
+        "FIXRAGENT_API_KEY": "${user_config.api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "api_key": {
+      "type": "string",
+      "title": "fixRAgent key",
+      "description": "Your key, requested at https://fixragent.com/docs#key. Sent as the x-triage-key header on every call.",
+      "required": true,
+      "sensitive": true
+    }
+  },
+  "tools": [
+    {
+      "name": "triage_photo",
+      "description": "Reads one maintenance photo and returns the Triage Profile: the asset, whether a fault is visible, the severity and tier, the trade required, and what to tell the resident."
+    }
+  ],
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
+  }
+}

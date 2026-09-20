@@ -2,13 +2,13 @@
 
 One MCP tool, `triage_photo`, in front of `https://fixragent.com/api/triage`.
 
-fixRAgent triages a maintenance photo in ten seconds: what it is, how urgent, who to call, what to say right now. This server lets an agent — Claude Desktop, Claude Code, Cursor, or any client that speaks the Model Context Protocol — send a photo and get the same fixed JSON the API returns, plus a link to the card.
+fixRAgent triages a maintenance photo in ten seconds: what it is, how urgent, who to call, what to say right now. This server lets an agent — Claude Desktop, Claude Code, Cursor, or any client that speaks the Model Context Protocol — send a photo and get the same fixed JSON the API returns, plus a link to the Triage Profile.
 
 - One file, `server.js`. No runtime dependencies. Node 20 or newer.
 - Speaks MCP over stdio in both eras: the `initialize` handshake every shipping client uses today (2025-11-25 back to 2024-11-05) and the per-request `_meta` form of the 2026-07-28 revision (`server/discover`, `resultType`).
 - The key is read from the `FIXRAGENT_API_KEY` environment variable and sent as the `x-triage-key` header. It is never written to a file, stdout or stderr.
 - `FIXRAGENT_API_URL` (optional) points the tool at another base, such as the mock below; the default is `https://fixragent.com`.
-- Every call carries `variant: source:mcp`, so its traffic is counted as channel `mcp`, on its own line beside the web card and direct API calls (channel `api`).
+- Every call carries `variant: source:mcp`, so its traffic is counted as channel `mcp`, on its own line beside the web profile and direct API calls (channel `api`).
 
 ## Install
 
@@ -90,7 +90,7 @@ The reply is a captured triage, and its `share_url` points at that captured `dia
 | `image_base64` | string | the photo as base64 instead of a path; a `data:image/...;base64,` prefix is accepted |
 | `mime_type` | `image/jpeg` · `image/png` · `image/webp` | required |
 | `problem_text` | string, at most 1,200 characters | the problem in the reporter's own words; treated as reported symptoms, never as ground truth |
-| `role` | `landlord` (default) · `fixer` | who is asking; changes the wording of the card, not the triage |
+| `role` | `landlord` (default) · `fixer` | who is asking; changes the wording of the profile, not the triage |
 | `config` | `fast` (default) · `deep` | `fast` reads the photo three times on production and `deep` five; both report how many reads agreed, and `agreement.n` is the count that ran — `deep` takes longer and spends more of the day's demo budget |
 
 Give `image_path` or `image_base64`, never both.
@@ -104,7 +104,7 @@ The result is the API's reply, unchanged, plus two links built from `diagnosis_i
 | `agreement` | how many reads gave the same yes/no answer about a fault: `n` reads ran, `k` agreed, `decided` when the agreeing reads are at least half |
 | `engine_version` · `rubric_version` · `config_id` | which engine, which rubric, which config produced this; a `config_id` beginning `fallback-` means a hardcoded config answered, not a measured candidate |
 | `callback_url` | the `/api/outcome` path for this `diagnosis_id` |
-| `share_url` | the card as a page: `https://fixragent.com/c/<diagnosis_id>` |
+| `share_url` | the profile as a page: `https://fixragent.com/c/<diagnosis_id>` |
 | `outcome_url` | two taps to tell us what happened: `https://fixragent.com/o/<diagnosis_id>` |
 | `warnings` | anything you should not miss, such as a config fallback |
 
@@ -154,7 +154,7 @@ An abridged reply, from a production response captured 14 Sep 2026 (three reads,
 }
 ```
 
-The agent can then say what the card would say: WHENEVER — healthy, cosmetic, or not a building asset; no dispatch is owed; all three reads agreed — and hand over `share_url`.
+The agent can then say what the profile would say: WHENEVER — healthy, cosmetic, or not a building asset; no dispatch is owed; all three reads agreed — and hand over `share_url`.
 
 ## Limits
 
@@ -186,7 +186,7 @@ Each failure has its own sentence.
 
 ## How it fits
 
-- It routes: what the photo shows, one of four urgency words, which trade. Gas, water near electrics and exposed wiring go straight to a licensed trade, and the card says so.
+- It routes: what the photo shows, one of four urgency words, which trade. Gas, water near electrics and exposed wiring go straight to a licensed trade, and the profile says so.
 - One fixed JSON shape every time, which your developers map to your own work-order fields.
 - Use it today with a demo key.
 - Agreement counts how often the reads matched each other; the outcome loop at `outcome_url` checks each triage against what actually happened.
@@ -198,7 +198,35 @@ Every uploaded photo has its metadata stripped — EXIF, XMP, IPTC and the other
 
 ## Privacy Policy
 
-This server sends the photo and the text you give it to `https://fixragent.com/api/triage` and nothing else; it keeps no copy, writes no log, and reads no other file than the one you name in `image_path`. What fixragent.com does with what it receives is in the privacy policy at [https://fixragent.com/privacy](https://fixragent.com/privacy). Contact: legal@fixragent.com.
+The published policy is at **https://fixragent.com/privacy**. This section states what *this server* does, so it
+can be read without leaving the repository.
+
+**What is collected.** A call to `triage_photo` sends to `https://fixragent.com/api/triage`: the photograph, its
+MIME type, the `problem_text` you passed (if any), the `role` and `config` you chose, and the fixed string
+`source:mcp`. The key travels as the `x-triage-key` header. **This server keeps no copy, writes no log, and reads
+no file other than the one named in `image_path`** — and when `image_path` is used, only the bytes are sent, never
+the path or the file name.
+
+**How it is used and stored.** Metadata — EXIF, XMP, IPTC and the other carriers that hold GPS — is stripped
+before the photo is hashed, before it reaches the engine, and before anything is stored; a photo that cannot be
+stripped is refused rather than processed. **The endpoint stores no photo bytes.** It keeps the SHA-256 of the
+stripped image and a triage row carrying `role` and `variant`, so that the profile's page and the outcome
+callback can be served.
+
+**Third parties, and what each holds.** The photograph is read by the model provider's API
+(`generativelanguage.googleapis.com`). **The engine provider keeps prompt, response and photo for 55 days.**
+Hosting is Vercel; the database is Supabase. Nothing is sold, and nothing is shared for advertising.
+
+**Retention and your control.** `share_url` (`https://fixragent.com/c/<diagnosis_id>`) is a page anyone holding
+the link can open — treat the link as you would the photograph. To have a diagnosis removed, send its
+`diagnosis_id` to support@fixragent.com. The rest of the retention terms are in the published policy.
+
+**Your key.** Read from `FIXRAGENT_API_KEY` at call time; never written to a file, to stdout or to stderr, and
+never quoted in an error — a key that cannot go into a header produces a fixed `KEY_UNSENDABLE` sentence instead
+of Node's own message, which would otherwise contain it.
+
+**Contact.** support@fixragent.com · legal@fixragent.com · https://fixragent.com/support
+AR Logic LLC, Ohio, United States.
 
 ## Test it
 
@@ -218,4 +246,4 @@ The harness has two canaries (`MCP_TEST_CANARY=401-as-200`, `MCP_TEST_CANARY=dro
 - [Agents quickstart](https://fixragent.com/docs/AGENTS-QUICKSTART.txt)
 - [llms.txt](https://fixragent.com/llms.txt)
 
-MIT licence. Made by ARLogic LLC.
+MIT licence. Made by AR Logic LLC.

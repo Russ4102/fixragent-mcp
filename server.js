@@ -14,7 +14,7 @@
  * call time, sent as the x-triage-key header, and never written to stdout or stderr.
  *
  * What this tool does: it routes the job. It returns the API's triage — what the photo shows, one of four urgency
- * words, which trade — and a link to the card. Gas, water near electrics and exposed wiring go straight to a licensed trade.
+ * words, which trade — and a link to the Triage Profile. Gas, water near electrics and exposed wiring go straight to a licensed trade.
  *
  * FIXRAGENT_API_URL (optional) points the tool at another base, such as the Postman mock; the default is https://fixragent.com.
  */
@@ -64,7 +64,7 @@ const INSTRUCTIONS =
   'One tool, triage_photo. Give it a photo of something in a building (an appliance, a fitting, a pipe, a panel) ' +
   'and, if you have them, the problem in the reporter\'s own words. You get back what it is, whether a fault is ' +
   'visible, one of four urgency words (EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to call, a line to say ' +
-  'to the tenant, and a share_url for the card. Each call spends one of the demo key\'s 60 requests a day. ' +
+  'to the tenant, and a share_url for the profile. Each call spends one of the demo key\'s 60 requests a day. ' +
   'The key comes from the FIXRAGENT_API_KEY environment variable; request one at https://fixragent.com/docs#key. ' +
   'The reply routes the job: what the photo shows, one of four urgency words, which trade. Gas, water near electrics and exposed wiring go straight to a licensed trade.';
 
@@ -82,7 +82,7 @@ const CORE_PROPERTIES = {
   fault_summary: { type: 'string', description: 'One paragraph for the person dispatching. Empty when no fault.' },
   fault_classes: { type: 'array', items: { type: 'string' }, description: 'Taxonomy class ids, primary first. Empty when fault_detected is false.' },
   severity: { type: 'string', enum: ['P1', 'P2', 'P3', 'P4'], description: 'Assigned by the server from the rubric, never taken from the model.' },
-  tier: { type: 'string', enum: ['EMERGENCY', 'TODAY', 'THIS WEEK', 'WHENEVER'], description: 'The only urgency wording a card may use. A pure function of severity.' },
+  tier: { type: 'string', enum: ['EMERGENCY', 'TODAY', 'THIS WEEK', 'WHENEVER'], description: 'The only urgency wording a profile may use. A pure function of severity.' },
   criterion_1_fired: { type: 'boolean', description: 'True when visible wiring or water near anything electrical forced EMERGENCY.' },
   tier_forced_by: { type: ['string', 'null'], description: 'Which rule overrode the decision table, when one did.' },
   visible_wiring: { type: 'boolean', description: 'Photo-borne fact: a conductor, splice or terminal a person could touch. Uncertain reads as false, on purpose.' },
@@ -101,7 +101,7 @@ const TOOL = {
     'Send one photo of something in a building to fixragent.com and get the fixed JSON triage back: what it is, ' +
     'whether a fault is visible, one of four urgency words (EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to ' +
     'call, a line to say to the tenant, and how many reads agreed. Spends one request on the demo key (60 a day). ' +
-    'Returns a diagnosis_id, a share_url for the card, and a callback_url for reporting what actually happened. ' +
+    'Returns a diagnosis_id, a share_url for the profile, and a callback_url for reporting what actually happened. ' +
     'Give either image_path (a file on this machine) or image_base64, never both. JPEG, PNG or WebP, at most 3 MB.',
   inputSchema: {
     type: 'object',
@@ -110,7 +110,7 @@ const TOOL = {
       image_base64: { type: 'string', description: 'The photo as base64. A data:image/...;base64, prefix is accepted.' },
       mime_type: { type: 'string', enum: ['image/jpeg', 'image/png', 'image/webp'], description: 'The photo\'s type.' },
       problem_text: { type: 'string', maxLength: MAX_PROBLEM_TEXT, description: 'The problem in the reporter\'s own words, if any. Treated as reported symptoms, never as ground truth.' },
-      role: { type: 'string', enum: ['landlord', 'fixer'], default: 'landlord', description: 'Who is asking: the landlord, or the one fixing it. Changes the wording of the card, not the triage.' },
+      role: { type: 'string', enum: ['landlord', 'fixer'], default: 'landlord', description: 'Who is asking: the landlord, or the one fixing it. Changes the wording of the profile, not the triage.' },
       config: { type: 'string', enum: ['fast', 'deep'], default: 'fast', description: 'fast reads the photo three times on production and deep five; both report how many reads agreed, and agreement.n in the reply is the count that ran. deep takes longer and spends more of the day\'s demo budget.' }
     },
     required: ['mime_type'],
@@ -124,7 +124,7 @@ const TOOL = {
       rubric_version: { type: 'string' },
       config_id: { type: 'string', description: 'An id beginning "fallback-" means a hardcoded config answered, not a measured candidate.' },
       callback_url: { type: 'string', description: 'The /api/outcome path for this diagnosis_id. POST { diagnosis_id, outcome } there when you know what happened.' },
-      share_url: { type: 'string', description: 'The card, as a page: https://fixragent.com/c/<diagnosis_id>' },
+      share_url: { type: 'string', description: 'The Triage Profile, as a page: https://fixragent.com/c/<diagnosis_id>' },
       outcome_url: { type: 'string', description: 'Two taps to tell us what happened: https://fixragent.com/o/<diagnosis_id>' },
       core: { type: 'object', properties: CORE_PROPERTIES, required: Object.keys(CORE_PROPERTIES) },
       agreement: { type: ['object', 'null'], description: 'How many reads agreed: n reads ran, k agreed.' },
