@@ -4,7 +4,7 @@
   "description": "One MCP tool, triage_photo: send a maintenance photo to fixragent.com/api/triage and get the fixed JSON triage back.",
   "mcpName": "io.github.Russ4102/fixragent-mcp",
   "license": "MIT",
-  "author": "ARLogic LLC",
+  "author": "AR Logic LLC",
   "homepage": "https://fixragent.com/docs",
   "repository": {
     "type": "git",
