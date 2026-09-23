@@ -26,6 +26,13 @@
           "isRequired": true,
           "isSecret": true,
           "format": "string"
+        },
+        {
+          "name": "FIXRAGENT_IMAGE_DIR",
+          "description": "The one folder image_path may read photos from. Unset, image_path is off and only image_base64 works.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "filepath"
         }
       ]
     }

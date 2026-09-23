@@ -102,11 +102,12 @@ const TOOL = {
     'whether a fault is visible, one of four urgency words (EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to ' +
     'call, a line to say to the tenant, and how many reads agreed. Spends one request on the demo key (60 a day). ' +
     'Returns a diagnosis_id, a share_url for the card, and a callback_url for reporting what actually happened. ' +
-    'Give either image_path (a file on this machine) or image_base64, never both. JPEG, PNG or WebP, at most 3 MB.',
+    'Give either image_path or image_base64, never both. image_path works only when the server was started with ' +
+    'FIXRAGENT_IMAGE_DIR, and only for files inside that folder. JPEG, PNG or WebP, 1 KB to 3 MB; bytes that are not an image are refused.',
   inputSchema: {
     type: 'object',
     properties: {
-      image_path: { type: 'string', description: 'Path to the photo on this machine (JPEG, PNG or WebP, at most 3 MB).' },
+      image_path: { type: 'string', description: 'Path to the photo inside the folder named by FIXRAGENT_IMAGE_DIR (off when that is not set). JPEG, PNG or WebP, 1 KB to 3 MB.' },
       image_base64: { type: 'string', description: 'The photo as base64. A data:image/...;base64, prefix is accepted.' },
       mime_type: { type: 'string', enum: ['image/jpeg', 'image/png', 'image/webp'], description: 'The photo\'s type.' },
       problem_text: { type: 'string', maxLength: MAX_PROBLEM_TEXT, description: 'The problem in the reporter\'s own words, if any. Treated as reported symptoms, never as ground truth.' },
@@ -172,24 +173,93 @@ function describeFailure(status, body, headers) {
 }
 
 // ── the call ─────────────────────────────────────────────────────────────────
+// image_path is OFF unless FIXRAGENT_IMAGE_DIR names a folder. The tool's arguments are written by a model, and a
+// model can be steered by text it read (a prompt injection); with no folder, a path argument could name any file
+// this user can read (~/.ssh/id_rsa, a .env) and its bytes would be POSTed to the API. With the folder set, the file's
+// real path (symlinks resolved) must be inside it, it must be a regular file of 1 KB to 3 MB, and its first bytes
+// must be an image's. image_base64 goes through the same byte check (validatePhotoBytes), so neither door sends
+// something that is not a photo.
+const IMAGE_DIR_ENV = 'FIXRAGENT_IMAGE_DIR';
+const MIN_PHOTO_BYTES = 1024;    // the API refuses photos under 1 KB
+const IMAGE_PATH_OFF = 'image_path is switched off on this server, so no file was read and nothing was sent. To let ' +
+  'it read photos, set ' + IMAGE_DIR_ENV + ' to the one folder it may read from and restart it; or send the photo as image_base64.';
+const OUTSIDE_DIR = 'image_path must name a file inside the folder in ' + IMAGE_DIR_ENV + ' (symlinks are followed ' +
+  'and must stay inside it). No file was read and nothing was sent.';
+
+// The first bytes of the image formats a camera or phone produces. Anything else is refused before it is sent.
+function sniffImage(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 12) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
+  if (buf.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
+  if (buf.toString('latin1', 0, 4) === 'RIFF' && buf.toString('latin1', 8, 12) === 'WEBP') return 'image/webp';
+  const g = buf.toString('latin1', 0, 6);
+  if (g === 'GIF87a' || g === 'GIF89a') return 'image/gif';
+  if (buf.toString('latin1', 4, 8) === 'ftyp' &&
+      ['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'mif1', 'msf1'].indexOf(buf.toString('latin1', 8, 12)) !== -1) return 'image/heic';
+  return null;
+}
+
+// One check for both doors: decoded size in bounds, and the bytes begin like an image.
+function validatePhotoBytes(buf) {
+  if (buf.length > MAX_PHOTO_BYTES) return { error: 'That photo is ' + buf.length + ' bytes; the API takes at most ' + MAX_PHOTO_BYTES + ' (3 MB). Resize it and try again. Nothing was sent.' };
+  if (buf.length < MIN_PHOTO_BYTES) return { error: 'That photo is under 1 KB (' + buf.length + ' bytes); the API refuses photos that small. Nothing was sent.' };
+  if (!sniffImage(buf)) return { error: 'That is not a photo: its first bytes are not a JPEG, PNG, WebP, GIF or HEIC image. Nothing was sent.' };
+  return { base64: buf.toString('base64'), bytes: buf.length };
+}
+
+function isInside(dir, p) {
+  const rel = path.relative(dir, p);
+  return rel !== '' && rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel);
+}
+
+function readPhotoFile(given) {
+  const dirEnv = process.env[IMAGE_DIR_ENV];
+  if (typeof dirEnv !== 'string' || !dirEnv.trim()) return { error: IMAGE_PATH_OFF };
+  const dirGiven = path.resolve(dirEnv.trim());
+  let dirReal;
+  try { dirReal = fs.realpathSync(dirGiven); } catch (_) { dirReal = null; }
+  if (!dirReal || !fs.statSync(dirReal).isDirectory()) {
+    return { error: IMAGE_DIR_ENV + ' does not name a folder that exists here, so image_path is off. No file was read and nothing was sent.' };
+  }
+  // A relative path is taken inside the folder. The lexical check runs before anything touches the disk, so a
+  // path outside the folder gets the same sentence whether or not a file is there (no probing for files).
+  const p = path.resolve(dirGiven, given);
+  if (!isInside(dirGiven, p) && !isInside(dirReal, p)) return { error: OUTSIDE_DIR };
+  let real;
+  try { real = fs.realpathSync(p); } catch (_) { return { error: 'No file at that path inside ' + IMAGE_DIR_ENV + '. Nothing was sent.' }; }
+  if (!isInside(dirReal, real)) return { error: OUTSIDE_DIR };
+  let fd;
+  try { fd = fs.openSync(real, 'r'); } catch (_) { return { error: 'That file could not be opened. Nothing was sent.' }; }
+  try {
+    const st = fs.fstatSync(fd);
+    if (!st.isFile()) return { error: 'That path is not a regular file. Nothing was sent.' };
+    if (st.size > MAX_PHOTO_BYTES) return { error: 'That photo is ' + st.size + ' bytes; the API takes at most ' + MAX_PHOTO_BYTES + ' (3 MB). Resize it and try again. Nothing was sent.' };
+    if (st.size < MIN_PHOTO_BYTES) return { error: 'That photo is under 1 KB (' + st.size + ' bytes); the API refuses photos that small. Nothing was sent.' };
+    const buf = Buffer.alloc(st.size);
+    let off = 0, n;
+    while (off < buf.length && (n = fs.readSync(fd, buf, off, buf.length - off, off)) > 0) off += n;
+    return validatePhotoBytes(buf.subarray(0, off));
+  } finally { fs.closeSync(fd); }
+}
+
+const B64_STRICT = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const MAX_B64_CHARS = Math.ceil(MAX_PHOTO_BYTES / 3) * 4;
+
+function readPhotoBase64(given) {
+  // A data: prefix is accepted; line breaks and spaces (a wrapped base64 dump) are removed; what is left must be
+  // canonical base64 and nothing else. Buffer.from(…, 'base64') alone would skip any character it does not know.
+  const b64 = given.replace(/^data:image\/[A-Za-z0-9.+-]+;base64,/, '').replace(/[\r\n\t ]+/g, '');
+  if (b64.length > MAX_B64_CHARS + 4) return { error: 'That photo decodes to more than ' + MAX_PHOTO_BYTES + ' bytes; the API takes at most 3 MB. Nothing was sent.' };
+  if (!B64_STRICT.test(b64)) return { error: 'image_base64 is not base64 (only A-Z, a-z, 0-9, +, / and = padding, in groups of four). Nothing was sent.' };
+  return validatePhotoBytes(Buffer.from(b64, 'base64'));
+}
+
 function readPhoto(args) {
   const hasPath = typeof args.image_path === 'string' && args.image_path.length > 0;
   const hasB64 = typeof args.image_base64 === 'string' && args.image_base64.length > 0;
   if (hasPath && hasB64) return { error: 'Give image_path or image_base64, not both.' };
-  if (!hasPath && !hasB64) return { error: 'A photo is needed: give image_path (a file on this machine) or image_base64.' };
-  if (hasPath) {
-    const p = path.resolve(process.cwd(), args.image_path);
-    let st;
-    try { st = fs.statSync(p); } catch (_) { return { error: 'No file at ' + p + '.' }; }
-    if (!st.isFile()) return { error: p + ' is not a file.' };
-    if (st.size > MAX_PHOTO_BYTES) return { error: 'That photo is ' + st.size + ' bytes; the API takes at most ' + MAX_PHOTO_BYTES + ' (3 MB). Resize it and try again. Nothing was sent.' };
-    if (st.size < 1024) return { error: 'That file is under 1 KB; the API refuses photos that small. Nothing was sent.' };
-    return { base64: fs.readFileSync(p).toString('base64'), bytes: st.size };
-  }
-  const b64 = args.image_base64.replace(/^data:[^;]+;base64,/, '');
-  const bytes = Math.floor((b64.length * 3) / 4) - (b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0);
-  if (bytes > MAX_PHOTO_BYTES) return { error: 'That photo decodes to about ' + bytes + ' bytes; the API takes at most ' + MAX_PHOTO_BYTES + ' (3 MB). Nothing was sent.' };
-  return { base64: b64, bytes: bytes };
+  if (!hasPath && !hasB64) return { error: 'A photo is needed: give image_path (a file in the ' + IMAGE_DIR_ENV + ' folder) or image_base64.' };
+  return hasPath ? readPhotoFile(args.image_path) : readPhotoBase64(args.image_base64);
 }
 
 async function triagePhoto(args) {
@@ -385,4 +455,4 @@ if (require.main === module) {
   else serve();
 }
 
-module.exports = { TOOL, CORE_PROPERTIES, describeFailure, cleanKey, handleMessage, MODERN_VERSIONS, LEGACY_VERSIONS, SERVER };
+module.exports = { sniffImage, validatePhotoBytes, IMAGE_DIR_ENV, TOOL, CORE_PROPERTIES, describeFailure, cleanKey, handleMessage, MODERN_VERSIONS, LEGACY_VERSIONS, SERVER };
