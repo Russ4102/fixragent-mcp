@@ -8,6 +8,9 @@
  *                                     and one real triage with FIXRAGENT_API_KEY from the environment (≈ one cent)
  *   MCP_TEST_CANARY=401-as-200 node test/run.mjs    the stub answers 200 to a wrong key → the 401 case MUST go red
  *   MCP_TEST_CANARY=drop-core  node test/run.mjs    the stub drops a core field → the shape case MUST go red
+ *   MCP_TEST_CANARY=drift      node test/run.mjs    one TriageCore field is dropped from the spec → the contract case MUST go red
+ *   MCP_TEST_OPENAPI=<file or URL>                  the spec the contract case reads (default https://fixragent.com/openapi.json)
+ *   MCP_TEST_OFFLINE=1                              the contract case prints SKIP instead of FAIL when the spec cannot be read
  *
  * Two clients are used on purpose: the official SDK (@modelcontextprotocol/sdk 1.30.0, legacy `initialize` era,
  * which also validates structuredContent against the tool's outputSchema) and raw JSON-RPC lines for the modern
@@ -29,7 +32,11 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 // MCP_TEST_SERVER runs the same cases against another copy (a before-fix copy, a planted copy) — rule 8.
 const SERVER_JS = process.env.MCP_TEST_SERVER ? path.resolve(process.env.MCP_TEST_SERVER) : path.join(HERE, '..', 'server.js');
 const FIX = (n) => JSON.parse(fs.readFileSync(path.join(HERE, 'fixtures', n), 'utf8'));
-const OPENAPI = path.join(HERE, '..', '..', 'openapi.json');
+// The spec the contract case compares against. It used to be path.join(HERE, '..', '..', 'openapi.json'): right when
+// this package lived at mcp/ inside the fixr repo, and outside this repo altogether once it stood alone, so the case
+// printed SKIP on every run (BLOCK-452 finding 11). The published spec is the one clients read, so that is the default.
+const OPENAPI = process.env.MCP_TEST_OPENAPI || 'https://fixragent.com/openapi.json';
+const OFFLINE = process.env.MCP_TEST_OFFLINE === '1';
 const argv = process.argv.slice(2);
 const LIVE = argv.includes('--live');
 const PHOTO = argv.includes('--photo') ? argv[argv.indexOf('--photo') + 1] : null;
@@ -148,11 +155,27 @@ const smallPhoto = path.join(tmp, 'photo.jpg');
 fs.writeFileSync(smallPhoto, Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(4096, 1)]));
 const bigPhoto = path.join(tmp, 'big.jpg');
 fs.writeFileSync(bigPhoto, Buffer.alloc(3145729, 2));
+// BLOCK-452: files the image_path guard must refuse, and ones it must still take. `tmp` is the FIXRAGENT_IMAGE_DIR;
+// `outside` is a sibling folder that stands in for a home directory's key folder.
+const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'fixragent-mcp-outside-'));
+const SECRET_LINE = 'NOT-AN-IMAGE-SECRET-LINE-b452';
+const secretOutside = path.join(outside, 'private-key.txt');  // 2 KB of text: over the 1 KB floor, as a real private key is
+fs.writeFileSync(secretOutside, (SECRET_LINE + '\n').repeat(80));
+const jpegOutside = path.join(outside, 'real.jpg');           // a JPEG outside: only the folder rule can refuse it
+fs.writeFileSync(jpegOutside, fs.readFileSync(smallPhoto));
+const textInside = path.join(tmp, 'notes.jpg');               // inside the folder, named .jpg, but text
+fs.writeFileSync(textInside, (SECRET_LINE + '\n').repeat(80));
+const linkOut = path.join(tmp, 'link-out.jpg');               // inside the folder, a symlink to a JPEG outside it
+fs.symlinkSync(jpegOutside, linkOut);
+const linkIn = path.join(tmp, 'link-in.jpg');                 // inside the folder, a symlink to a photo inside it
+fs.symlinkSync(smallPhoto, linkIn);
+fs.mkdirSync(path.join(tmp, 'sub.jpg'));
+const pngBytes = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(2048, 3)]);
 
 // ── the cases ────────────────────────────────────────────────────────────────
 async function stubCases() {
   const stub = await startStub();
-  const base = { FIXRAGENT_API_URL: stub.url };
+  const base = { FIXRAGENT_API_URL: stub.url, FIXRAGENT_IMAGE_DIR: tmp };
   const call = (client, args) => client.callTool({ name: 'triage_photo', arguments: args });
 
   console.log('# stub mode — ' + stub.url + (CANARY ? '   CANARY=' + CANARY + ' (a case MUST go red)' : ''));
@@ -268,9 +291,119 @@ async function stubCases() {
     ok(!r3.isError && last3.image_len === b64.length, 'GREEN: image_base64 with a data: prefix is accepted and the prefix stripped');
   });
 
-  // contract drift — CORE_PROPERTIES vs openapi.json (in-repo only)
-  if (fs.existsSync(OPENAPI)) {
-    const spec = JSON.parse(fs.readFileSync(OPENAPI, 'utf8'));
+  // BLOCK-452: image_path is off unless FIXRAGENT_IMAGE_DIR is set, stays inside it, and sends only image bytes;
+  // image_base64 gets the same byte check. Every refusal must also leave the stub untouched: nothing was sent.
+  // Each case counts only the requests ITS call made (lastSent), so one guard that fails does not turn every later
+  // case red with it, and a red run names the guard that broke. A protocol error becomes a failed case, not a crash.
+  let lastSent = 0;
+  const sentNothing = () => lastSent === 0;
+  const imageArgs = (p) => ({ image_path: p, mime_type: 'image/jpeg' });
+  const counted = async (fn) => {
+    const b0 = stub.requests.length;
+    let r;
+    try { r = await fn(); } catch (e) { r = { isError: false, content: [{ type: 'text', text: 'call threw: ' + (e && e.message) }] }; }
+    lastSent = stub.requests.length - b0;
+    return r;
+  };
+  {
+    const noDir = { FIXRAGENT_API_URL: stub.url, FIXRAGENT_API_KEY: 'stub-key' };
+    const got = await counted(() => rawCall(noDir, imageArgs(secretOutside)));
+    ok(got.result && got.result.isError === true && /switched off/.test(text(got.result)) && sentNothing(),
+      'B452 P1: FIXRAGENT_IMAGE_DIR unset → image_path refused, file not read, nothing sent', text(got.result));
+    const got2 = await counted(() => rawCall(noDir, imageArgs(smallPhoto)));
+    ok(got2.result && got2.result.isError === true && /switched off/.test(text(got2.result)) && sentNothing(),
+      'B452 P1b: FIXRAGENT_IMAGE_DIR unset → even a real photo path is refused (off by default)', text(got2.result));
+  }
+  await withSdk(Object.assign({ FIXRAGENT_API_KEY: 'stub-key' }, base), async (client) => {
+    await client.listTools();
+    const call = (c, args) => counted(() => c.callTool({ name: 'triage_photo', arguments: args }));
+    const r1 = await call(client, imageArgs(secretOutside));
+    ok(r1.isError === true && /inside the folder/.test(text(r1)) && sentNothing() && text(r1).indexOf(SECRET_LINE) === -1,
+      'B452 P2: a 2 KB text file outside FIXRAGENT_IMAGE_DIR (the private-key shape) → refused, nothing sent', text(r1));
+    const r2 = await call(client, imageArgs(jpegOutside));
+    ok(r2.isError === true && /inside the folder/.test(text(r2)) && sentNothing(),
+      'B452 P3: a real JPEG outside the folder → refused by the folder rule alone', text(r2));
+    const r3 = await call(client, imageArgs(linkOut));
+    ok(r3.isError === true && /inside the folder/.test(text(r3)) && sentNothing(),
+      'B452 P4: a symlink inside the folder pointing outside it → refused (the real path is checked)', text(r3));
+    const r4 = await call(client, imageArgs('../' + path.basename(outside) + '/real.jpg'));
+    ok(r4.isError === true && /inside the folder/.test(text(r4)) && sentNothing(),
+      'B452 P5: a relative ../ path climbing out of the folder → refused', text(r4));
+    const r5 = await call(client, imageArgs(path.join(outside, 'no-such-file')));
+    ok(r5.isError === true && text(r5) === text(r2) && sentNothing(),
+      'B452 P6: outside the folder, a missing file and a present one get the SAME sentence (no probing for files)', text(r5) + ' | ' + text(r2));
+    const r6 = await call(client, imageArgs(textInside));
+    ok(r6.isError === true && /not a photo/.test(text(r6)) && sentNothing() && text(r6).indexOf(SECRET_LINE) === -1,
+      'B452 P7: a text file inside the folder named .jpg → refused by its first bytes, nothing sent', text(r6));
+    const r7 = await call(client, imageArgs(path.join(tmp, 'sub.jpg')));
+    ok(r7.isError === true && /not a regular file/.test(text(r7)) && sentNothing(),
+      'B452 P8: a folder inside the folder → refused as not a regular file', text(r7));
+
+    // base64: the same checks, through the same function
+    const b = (buf) => ({ image_base64: buf.toString('base64'), mime_type: 'image/jpeg' });
+    const r8 = await call(client, b(Buffer.from('NOT-AN-IMAGE')));
+    ok(r8.isError === true && /under 1 KB/.test(text(r8)) && sentNothing(),
+      'B452 B1: image_base64 of 12 bytes → refused under 1 KB, nothing sent (the path door already had this floor)', text(r8));
+    const r8b = await call(client, b(Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(96, 1)])));
+    ok(r8b.isError === true && /under 1 KB/.test(text(r8b)) && sentNothing(),
+      'B452 B1b: image_base64 of 100 bytes that begin like a JPEG → still refused under 1 KB (the floor, not the sniff)', text(r8b));
+    const r8c = await call(client, b(Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(3145728, 1)])));
+    ok(r8c.isError === true && /3 MB/.test(text(r8c)) && sentNothing(),
+      'B452 B5: image_base64 decoding to 3 MB + 4 bytes → refused locally, nothing sent', text(r8c));
+    const r9 = await call(client, b(Buffer.from((SECRET_LINE + '\n').repeat(80))));
+    ok(r9.isError === true && /not a photo/.test(text(r9)) && sentNothing(),
+      'B452 B2: image_base64 of 2 KB of text → refused by its first bytes, nothing sent', text(r9));
+    const r10 = await call(client, { image_base64: '!!!!' + fs.readFileSync(smallPhoto).toString('base64'), mime_type: 'image/jpeg' });
+    ok(r10.isError === true && /not base64/.test(text(r10)) && sentNothing(),
+      'B452 B3: image_base64 holding characters outside the base64 alphabet → refused, nothing sent', text(r10));
+    const r11 = await call(client, { image_base64: fs.readFileSync(smallPhoto).toString('base64').slice(0, -1), mime_type: 'image/jpeg' });
+    ok(r11.isError === true && /not base64/.test(text(r11)) && sentNothing(),
+      'B452 B4: image_base64 whose length is not a multiple of four → refused, nothing sent', text(r11));
+
+    // and what must still go through
+    const g1 = await call(client, imageArgs('photo.jpg'));
+    let last = stub.requests[stub.requests.length - 1];
+    ok(!g1.isError && lastSent === 1 && last.image_len === fs.readFileSync(smallPhoto).toString('base64').length,
+      'B452 G1: a relative image_path is taken inside the folder and sent', text(g1));
+    const g2 = await call(client, imageArgs(linkIn));
+    ok(!g2.isError && lastSent === 1, 'B452 G2: a symlink inside the folder to a photo inside it is sent', text(g2));
+    const wrapped = pngBytes.toString('base64').replace(/(.{76})/g, '$1\n');
+    const g3 = await call(client, { image_base64: wrapped, mime_type: 'image/png' });
+    last = stub.requests[stub.requests.length - 1];
+    ok(!g3.isError && lastSent === 1 && last.image_len === pngBytes.toString('base64').length,
+      'B452 G3: a PNG as base64 wrapped at 76 columns is accepted and sent without the line breaks', text(g3));
+  });
+  {
+    const mod = await import(SERVER_JS).then((m) => m.default || m);
+    const sniff = mod.sniffImage;
+    const pad = (h) => Buffer.concat([h, Buffer.alloc(32)]);
+    const fam = typeof sniff === 'function' ? [
+      sniff(pad(Buffer.from([0xff, 0xd8, 0xff, 0xdb]))), sniff(pad(pngBytes.subarray(0, 8))),
+      sniff(pad(Buffer.from('RIFF\0\0\0\0WEBPVP8 ', 'latin1'))), sniff(pad(Buffer.from('GIF89a', 'latin1'))),
+      sniff(pad(Buffer.from('\0\0\0\x18ftypheic', 'latin1'))), sniff(pad(Buffer.from('-----BEGIN PRIVATE KEY-----', 'latin1')))
+    ].join() : 'sniffImage not exported';
+    ok(fam === 'image/jpeg,image/png,image/webp,image/gif,image/heic,', 'B452 S1: sniffImage names JPEG, PNG, WebP, GIF, HEIC and refuses a key file (' + fam + ')');
+  }
+
+  // contract drift: CORE_PROPERTIES vs the published openapi.json TriageCore
+  let spec = null, specErr = '';
+  try {
+    if (/^https?:\/\//.test(OPENAPI)) {
+      const r = await fetch(OPENAPI, { signal: AbortSignal.timeout(15000), headers: { 'user-agent': 'fixragent-mcp-test' } });
+      if (r.status !== 200) throw new Error('HTTP ' + r.status);
+      spec = await r.json();
+    } else {
+      spec = JSON.parse(fs.readFileSync(OPENAPI, 'utf8'));
+    }
+    if (!spec || !spec.components || !spec.components.schemas || !spec.components.schemas.TriageCore) throw new Error('no components.schemas.TriageCore in it');
+  } catch (e) { spec = null; specErr = (e && e.message) || String(e); }
+  if (spec && CANARY === 'drift') delete spec.components.schemas.TriageCore.properties.trade_required;
+  if (!spec && OFFLINE) {
+    console.log('SKIP  contract drift check: MCP_TEST_OFFLINE=1 and ' + OPENAPI + ' could not be read (' + specErr + ')');
+  } else if (!spec) {
+    ok(false, 'contract: read the spec from ' + OPENAPI, specErr + '. Set MCP_TEST_OPENAPI to a copy, or MCP_TEST_OFFLINE=1 to skip on purpose');
+  } else {
+    console.log('#     contract spec: ' + OPENAPI);
     const { CORE_PROPERTIES } = await import(SERVER_JS).then((m) => m.default || m);
     const specKeys = Object.keys(spec.components.schemas.TriageCore.properties);
     const mine = Object.keys(CORE_PROPERTIES);
@@ -278,8 +411,6 @@ async function stubCases() {
     const specTier = spec.components.schemas.TriageCore.properties.tier.enum.join();
     ok(specTier === CORE_PROPERTIES.tier.enum.join(), 'contract: tier enum matches openapi.json');
     ok(spec.components.schemas.TriageCore.properties.severity.enum.join() === CORE_PROPERTIES.severity.enum.join(), 'contract: severity enum matches openapi.json');
-  } else {
-    console.log('SKIP  contract drift check: openapi.json not beside this package');
   }
 
   // modern era, raw JSON-RPC
@@ -316,13 +447,14 @@ async function liveCases() {
   const photo = PHOTO || smallPhoto;
   const call = (client, args) => client.callTool({ name: 'triage_photo', arguments: args });
 
-  await withSdk({ FIXRAGENT_API_KEY: 'this-is-not-the-key' }, async (client) => {
+  const photoDir = path.dirname(path.resolve(photo));
+  await withSdk({ FIXRAGENT_API_KEY: 'this-is-not-the-key', FIXRAGENT_IMAGE_DIR: photoDir }, async (client) => {
     await client.listTools();
     const r = await call(client, { image_path: photo, mime_type: 'image/jpeg' });
     ok(r.isError === true && /401/.test(text(r)) && /A demo key is required/.test(text(r)), 'LIVE RED: production refuses a wrong key with 401 in plain words (spends nothing, stores nothing)', text(r));
   });
   if (!keySet) { console.log('SKIP  live GREEN: no key in the environment'); return; }
-  await withSdk({ FIXRAGENT_API_KEY: process.env.FIXRAGENT_API_KEY }, async (client) => {
+  await withSdk({ FIXRAGENT_API_KEY: process.env.FIXRAGENT_API_KEY, FIXRAGENT_IMAGE_DIR: photoDir }, async (client) => {
     await client.listTools();
     const t0 = Date.now();
     let r, err = null;
@@ -348,6 +480,7 @@ try {
   fail++;
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
+  fs.rmSync(outside, { recursive: true, force: true });
 }
 console.log('\n' + pass + ' pass, ' + fail + ' fail' + (CANARY ? '  (canary ' + CANARY + ': ' + (fail ? 'went RED as it must' : 'DID NOT go red — the harness is decoration') + ')' : ''));
 process.exit(fail ? 1 : 0);
