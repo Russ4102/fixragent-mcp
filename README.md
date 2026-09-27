@@ -61,6 +61,17 @@ Create `.cursor/mcp.json` in the project (or `~/.cursor/mcp.json` for every proj
 }
 ```
 
+### Gemini CLI
+
+This repo is also a Gemini CLI extension. It connects to the remote server at `https://fixragent.com/mcp` (the tool there is `assess_property_photo`), so there is nothing to run locally.
+
+```sh
+gemini extensions install https://github.com/Russ4102/fixragent-mcp
+gemini extensions config fixragent   # paste your key; it is stored in the system keychain
+```
+
+The key goes out as the `x-triage-key` header. Without it, Gemini still lists the tool, but assessing a photo is refused.
+
 ## The key
 
 Ask at [fixragent.com/docs#key](https://fixragent.com/docs#key), or email legal@fixragent.com with one line on what you are building, and a person replies with your key.
