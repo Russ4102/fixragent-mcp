@@ -1,0 +1,23 @@
+{
+  "name": "fixragent",
+  "version": "1.0.0",
+  "description": "Triage a property maintenance photo: what it is, how urgent (EMERGENCY, TODAY, THIS WEEK, WHENEVER), and which trade to call. Remote MCP at fixragent.com.",
+  "mcpServers": {
+    "fixragent": {
+      "httpUrl": "https://fixragent.com/mcp",
+      "headers": {
+        "x-triage-key": "${FIXRAGENT_API_KEY}"
+      },
+      "timeout": 60000
+    }
+  },
+  "contextFileName": "GEMINI.md",
+  "settings": [
+    {
+      "name": "fixRAgent key",
+      "description": "Your fixRAgent key, issued free at https://fixragent.com/docs#key. Listing the tool works without it; assessing a photo needs it.",
+      "envVar": "FIXRAGENT_API_KEY",
+      "sensitive": true
+    }
+  ]
+}
