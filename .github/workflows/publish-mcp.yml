@@ -1,0 +1,98 @@
+# Publish fixragent-mcp to the official MCP Registry.
+#
+# ONE TAP. This workflow has `workflow_dispatch` and nothing else: it never runs on a push, a schedule or a
+# hook, so nothing publishes by itself (AR Logic standing rule, 16 Sep 2026). A person clicks "Run workflow".
+#
+# It needs NO npm account, NO npm token and NO browser login:
+#   * the package ships as an .mcpb bundle attached to a GitHub release, which the registry's own validator
+#     accepts (internal/validators/registries/mcpb.go: github.com is allowlisted, release-asset URLs are the
+#     required shape, and "GitHub serves release assets via a 302 to a signed S3 URL ... acceptable");
+#   * authentication is `mcp-publisher login github-oidc`, which uses this workflow's own OIDC token.
+name: Publish to MCP Registry
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (must match package.json)"
+        required: true
+        default: "0.1.0"
+permissions:
+  contents: write      # create the release and upload the .mcpb asset
+  id-token: write      # the OIDC token mcp-publisher exchanges - this is what replaces the browser login
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+
+      - name: Refuse if the version does not match package.json
+        run: |
+          set -euo pipefail
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$PKG" != "${{ inputs.version }}" ]; then
+            echo "package.json says $PKG, you asked for ${{ inputs.version }}. Refusing."; exit 1
+          fi
+
+      - name: Build the .mcpb bundle
+        run: |
+          set -euo pipefail
+          rm -rf bundle && mkdir -p bundle
+          cp server.js README.md LICENSE bundle/
+          node -e '
+            const p = require("./package.json");
+            require("fs").writeFileSync("bundle/manifest.json", JSON.stringify({
+              manifest_version: "0.2",
+              name: p.name, display_name: "fixRAgent triage", version: p.version,
+              description: p.description, author: { name: p.author },
+              homepage: p.homepage, license: p.license,
+              server: { type: "node", entry_point: "server.js",
+                mcp_config: { command: "node", args: ["${__dirname}/server.js"],
+                  env: { FIXRAGENT_API_KEY: "${user_config.api_key}" } } },
+              user_config: { api_key: { type: "string", title: "fixRAgent demo key",
+                description: "Requested at https://fixragent.com/docs#key", sensitive: true, required: true } }
+            }, null, 2));
+          '
+          (cd bundle && zip -qr ../fixragent-mcp.mcpb .)
+          echo "SHA=$(sha256sum fixragent-mcp.mcpb | cut -d' ' -f1)" >> "$GITHUB_ENV"
+
+      - name: Create the release and attach the bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "v${{ inputs.version }}" fixragent-mcp.mcpb \
+            --title "v${{ inputs.version }}" --notes "fixragent-mcp ${{ inputs.version }}" || \
+          gh release upload "v${{ inputs.version }}" fixragent-mcp.mcpb --clobber
+
+      - name: Point server.json at the release asset
+        env:
+          VER: ${{ inputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("fs"); const s = JSON.parse(fs.readFileSync("server.json","utf8"));
+            s.version = process.env.VER;
+            s.packages = [{
+              registryType: "mcpb",
+              identifier: "https://github.com/" + process.env.REPO + "/releases/download/v" + process.env.VER + "/fixragent-mcp.mcpb",
+              version: process.env.VER,
+              fileSha256: process.env.SHA,
+              transport: { type: "stdio" },
+              environmentVariables: [{ name: "FIXRAGENT_API_KEY",
+                description: "Your demo key, requested at https://fixragent.com/docs#key. Sent as the x-triage-key header on every call.",
+                isRequired: true, isSecret: true, format: "string" }]
+            }];
+            fs.writeFileSync("server.json", JSON.stringify(s, null, 2) + "\n");
+          '
+          cat server.json
+
+      - name: Publish
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr A-Z a-z)_$(uname -m | sed s/x86_64/amd64/).tar.gz" | tar xz mcp-publisher
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
+          echo 'Published. Verify with: curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=fixragent"'
