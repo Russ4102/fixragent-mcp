@@ -9,10 +9,10 @@ The server runs at **`https://fixragent.com/mcp`** (streamable HTTP). It has thr
 | tool | what it does | key needed? |
 |---|---|---|
 | `try_sample` | returns a stored assessment of a sample photo from fixRAgent's test set, labelled SAMPLE | no; spends nothing |
-| `assess_property_photo` | reads one photo (base64, or a file reference with an https `download_url`) and returns the fixed triage | no key: up to 3 real reads per connection in a rolling 24 hours, shared across keyless callers up to a daily ceiling; past that it returns the SAMPLE. With a free key: 60 a day |
+| `assess_property_photo` | reads one photo (`image_base64` with `mime_type`, or `image`: a file reference with an https `download_url` and a `file_id`) and returns the fixed triage | no key: up to 3 real reads per connection in a rolling 24 hours, shared across keyless callers up to a daily ceiling; past that it returns the SAMPLE. With a free key: 60 a day |
 | `get_triage_profile` | reads a saved assessment back by its `diagnosis_id` | no; calls no model |
 
-A free key is issued at [fixragent.com/docs#key](https://fixragent.com/docs#key). Send it as the `x-triage-key` header, an `Authorization: Bearer` header, or `?k=` on the server URL.
+A free key is issued at [fixragent.com/docs#key](https://fixragent.com/docs#key). Send it as the `x-triage-key` header, an `Authorization: Bearer` header, or `?k=` on the server URL. Every call, keyed or not, also counts against 20 requests an hour per address.
 
 **Claude Code**
 
