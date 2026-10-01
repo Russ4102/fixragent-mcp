@@ -1,8 +1,36 @@
 # fixragent-mcp
 
-One MCP tool, `triage_photo`, in front of `https://fixragent.com/api/triage`.
+fixRAgent triages a property-maintenance photo: what it is, how urgent it is (one of four words: EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to call, and a line to say to the resident.
 
-fixRAgent triages a maintenance photo in ten seconds: what it is, how urgent, who to call, what to say right now. This server lets an agent — Claude Desktop, Claude Code, Cursor, or any client that speaks the Model Context Protocol — send a photo and get the same fixed JSON the API returns, plus a link to the card.
+## Start here: the remote server (nothing to install)
+
+The server runs at **`https://fixragent.com/mcp`** (streamable HTTP). It has three tools:
+
+| tool | what it does | key needed? |
+|---|---|---|
+| `try_sample` | returns a stored assessment of a sample photo from fixRAgent's test set, labelled SAMPLE | no; spends nothing |
+| `assess_property_photo` | reads one photo (base64, or a file reference with an https `download_url`) and returns the fixed triage | no key: up to 3 real reads per connection in a rolling 24 hours, shared across keyless callers up to a daily ceiling; past that it returns the SAMPLE. With a free key: 60 a day |
+| `get_triage_profile` | reads a saved assessment back by its `diagnosis_id` | no; calls no model |
+
+A free key is issued at [fixragent.com/docs#key](https://fixragent.com/docs#key). Send it as the `x-triage-key` header, an `Authorization: Bearer` header, or `?k=` on the server URL.
+
+**Claude Code**
+
+```sh
+claude mcp add --transport http fixragent https://fixragent.com/mcp
+```
+
+**Claude, ChatGPT, Cursor, VS Code:** add a custom connector (remote MCP server) with the URL `https://fixragent.com/mcp`. A step-by-step guide and one-click buttons for each are on [fixragent.com/connect-ai.html](https://fixragent.com/connect-ai.html).
+
+**Gemini CLI:** see [Gemini CLI](#gemini-cli) below.
+
+It is also listed in the [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=fixragent) as `io.github.Russ4102/fixragent`.
+
+Anything happening right now that needs emergency services (fire, a gas smell, someone hurt) is a 911 call, not a tool call.
+
+## The local stdio server (optional)
+
+The rest of this README covers `server.js`, an older one-file stdio server with one tool, `triage_photo`, in front of `https://fixragent.com/api/triage`. It needs a key. Use it only if your client cannot reach a remote server.
 
 - One file, `server.js`. No runtime dependencies. Node 20 or newer.
 - Speaks MCP over stdio in both eras: the `initialize` handshake every shipping client uses today (2025-11-25 back to 2024-11-05) and the per-request `_meta` form of the 2026-07-28 revision (`server/discover`, `resultType`).
