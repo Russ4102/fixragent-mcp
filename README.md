@@ -1,8 +1,36 @@
 # fixragent-mcp
 
-One MCP tool, `triage_photo`, in front of `https://fixragent.com/api/triage`.
+fixRAgent triages a property-maintenance photo: what it is, how urgent it is (one of four words: EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to call, and a line to say to the resident.
 
-fixRAgent triages a maintenance photo in ten seconds: what it is, how urgent, who to call, what to say right now. This server lets an agent — Claude Desktop, Claude Code, Cursor, or any client that speaks the Model Context Protocol — send a photo and get the same fixed JSON the API returns, plus a link to the card.
+## Start here: the remote server (nothing to install)
+
+The server runs at **`https://fixragent.com/mcp`** (streamable HTTP). It has three tools:
+
+| tool | what it does | key needed? |
+|---|---|---|
+| `try_sample` | returns a stored assessment of a sample photo from fixRAgent's test set, labelled SAMPLE | no; spends nothing |
+| `assess_property_photo` | reads one photo (`image_base64` with `mime_type`, or `image`: a file reference with an https `download_url` and a `file_id`) and returns the fixed triage | no key: up to 3 real reads per connection in a rolling 24 hours, shared across keyless callers up to a daily ceiling; past that it returns the SAMPLE. With a free key: 60 a day |
+| `get_triage_profile` | reads a saved assessment back by its `diagnosis_id` | no; calls no model |
+
+A free key is issued at [fixragent.com/docs#key](https://fixragent.com/docs#key). Send it as the `x-triage-key` header, an `Authorization: Bearer` header, or `?k=` on the server URL. A call with no key of its own (keyless `assess_property_photo`, and every `get_triage_profile` read) also counts against 20 requests an hour per address; an issued key is judged by the key (its own per-minute burst and daily limit), and `try_sample` has its own per-address counter.
+
+**Claude Code**
+
+```sh
+claude mcp add --transport http fixragent https://fixragent.com/mcp
+```
+
+**Claude, ChatGPT, Cursor, VS Code:** add a custom connector (remote MCP server) with the URL `https://fixragent.com/mcp`. A step-by-step guide and one-click buttons for each are on [fixragent.com/connect-ai.html](https://fixragent.com/connect-ai.html).
+
+**Gemini CLI:** see [Gemini CLI](#gemini-cli) below.
+
+It is also listed in the [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=fixragent) as `io.github.Russ4102/fixragent`.
+
+Anything happening right now that needs emergency services (fire, a gas smell, someone hurt) is a 911 call, not a tool call.
+
+## The local stdio server (optional)
+
+The rest of this README covers `server.js`, an older one-file stdio server with one tool, `triage_photo`, in front of `https://fixragent.com/api/triage`. It needs a key. Use it only if your client cannot reach a remote server.
 
 - One file, `server.js`. No runtime dependencies. Node 20 or newer.
 - Speaks MCP over stdio in both eras: the `initialize` handshake every shipping client uses today (2025-11-25 back to 2024-11-05) and the per-request `_meta` form of the 2026-07-28 revision (`server/discover`, `resultType`).
@@ -63,14 +91,14 @@ Create `.cursor/mcp.json` in the project (or `~/.cursor/mcp.json` for every proj
 
 ### Gemini CLI
 
-This repo is also a Gemini CLI extension. It connects to the remote server at `https://fixragent.com/mcp` (the tool there is `assess_property_photo`), so there is nothing to run locally.
+This repo is also a Gemini CLI extension. It connects to the remote server at `https://fixragent.com/mcp` (the same three tools as above), so there is nothing to run locally.
 
 ```sh
 gemini extensions install https://github.com/Russ4102/fixragent-mcp
 gemini extensions config fixragent   # paste your key; it is stored in the system keychain
 ```
 
-The key goes out as the `x-triage-key` header. Without it, Gemini still lists the tool, but assessing a photo is refused.
+The key goes out as the `x-triage-key` header. Without it, Gemini lists the same three tools and the keyless allowance above applies: up to 3 real reads per connection in a rolling 24 hours, then the SAMPLE.
 
 ## The key
 
@@ -259,4 +287,4 @@ The contract case compares the tool's `core` fields with `components.schemas.Tri
 - [Agents quickstart](https://fixragent.com/docs/AGENTS-QUICKSTART.txt)
 - [llms.txt](https://fixragent.com/llms.txt)
 
-MIT licence. Made by ARLogic LLC.
+MIT licence. Made by AR Logic LLC.
