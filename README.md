@@ -12,7 +12,7 @@ The server runs at **`https://fixragent.com/mcp`** (streamable HTTP). It has thr
 | `assess_property_photo` | reads one photo (`image_base64` with `mime_type`, or `image`: a file reference with an https `download_url` and a `file_id`) and returns the fixed triage | no key: up to 3 real reads per connection in a rolling 24 hours, shared across keyless callers up to a daily ceiling; past that it returns the SAMPLE. With a free key: 60 a day |
 | `get_triage_profile` | reads a saved assessment back by its `diagnosis_id` | no; calls no model |
 
-A free key is issued at [fixragent.com/docs#key](https://fixragent.com/docs#key). Send it as the `x-triage-key` header, an `Authorization: Bearer` header, or `?k=` on the server URL. Every call, keyed or not, also counts against 20 requests an hour per address.
+A free key is issued at [fixragent.com/docs#key](https://fixragent.com/docs#key). Send it as the `x-triage-key` header, an `Authorization: Bearer` header, or `?k=` on the server URL. A call with no key of its own (keyless `assess_property_photo`, and every `get_triage_profile` read) also counts against 20 requests an hour per address; an issued key is judged by the key (its own per-minute burst and daily limit), and `try_sample` has its own per-address counter.
 
 **Claude Code**
 
@@ -91,14 +91,14 @@ Create `.cursor/mcp.json` in the project (or `~/.cursor/mcp.json` for every proj
 
 ### Gemini CLI
 
-This repo is also a Gemini CLI extension. It connects to the remote server at `https://fixragent.com/mcp` (the tool there is `assess_property_photo`), so there is nothing to run locally.
+This repo is also a Gemini CLI extension. It connects to the remote server at `https://fixragent.com/mcp` (the same three tools as above), so there is nothing to run locally.
 
 ```sh
 gemini extensions install https://github.com/Russ4102/fixragent-mcp
 gemini extensions config fixragent   # paste your key; it is stored in the system keychain
 ```
 
-The key goes out as the `x-triage-key` header. Without it, Gemini still lists the tool, but assessing a photo is refused.
+The key goes out as the `x-triage-key` header. Without it, Gemini lists the same three tools and the keyless allowance above applies: up to 3 real reads per connection in a rolling 24 hours, then the SAMPLE.
 
 ## The key
 
@@ -287,4 +287,4 @@ The contract case compares the tool's `core` fields with `components.schemas.Tri
 - [Agents quickstart](https://fixragent.com/docs/AGENTS-QUICKSTART.txt)
 - [llms.txt](https://fixragent.com/llms.txt)
 
-MIT licence. Made by ARLogic LLC.
+MIT licence. Made by AR Logic LLC.
