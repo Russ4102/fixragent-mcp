@@ -6,7 +6,7 @@
     "fixragent": {
       "httpUrl": "https://fixragent.com/mcp",
       "headers": {
-        "x-triage-key": "${FIXRAGENT_API_KEY}"
+        "x-triage-key": "${FIXRAGENT_API_KEY:-}"
       },
       "timeout": 60000
     }
