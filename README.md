@@ -259,7 +259,7 @@ Each failure has its own sentence.
 
 ## What happens to your photo
 
-Every uploaded photo has its metadata stripped — EXIF, XMP, IPTC and the other carriers that hold GPS — before it is hashed, before it is sent to the engine, and before anything is stored. If the metadata cannot be stripped, the photo is refused (415 or 500) rather than processed. The endpoint stores no photo bytes; it keeps the SHA-256 of the stripped version, and the triage row it writes carries `role` and `variant` (`source:mcp`). The engine provider keeps prompt, response and photo for 55 days. Full text: [fixragent.com/docs#photos](https://fixragent.com/docs#photos) and [fixragent.com/privacy](https://fixragent.com/privacy).
+Every uploaded photo has its metadata stripped — EXIF, XMP, IPTC and the other carriers that hold GPS — before it is hashed, before it is sent to the engine, and before anything is stored. If the metadata cannot be stripped, the photo is refused (415 or 500) rather than processed. The endpoint keeps the cleaned photo with its Triage Profile (anyone with the profile's link sees it) and the SHA-256 of the stripped version, and the triage row it writes carries `role` and `variant` (`source:mcp`). The engine provider keeps prompt, response and photo for 55 days. Full text: [fixragent.com/docs#photos](https://fixragent.com/docs#photos) and [fixragent.com/privacy](https://fixragent.com/privacy).
 
 ## Privacy Policy
 
