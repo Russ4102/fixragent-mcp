@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "fixRAgent connection settings",
+  "description": "Everything here is optional. With no key, try_sample works and assess_property_photo reads up to 3 real photos per caller in a rolling 24 hours (under a shared daily ceiling); past that it returns a stored SAMPLE and says so. get_triage_profile needs no key.",
+  "type": "object",
+  "properties": {
+    "triageKey": {
+      "type": "string",
+      "title": "fixRAgent key (optional)",
+      "description": "Your fixRAgent key, issued free at https://fixragent.com/docs#key. Sent to https://fixragent.com/mcp as the x-triage-key header. A key lifts the keyless cap: 60 assessments a day.",
+      "x-from": { "header": "x-triage-key" }
+    }
+  },
+  "required": []
+}
