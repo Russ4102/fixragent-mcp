@@ -1,6 +1,8 @@
 # fixragent-mcp
 
-fixRAgent triages a property-maintenance photo: what it is, how urgent it is (one of four words: EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to call, and a line to say to the resident.
+**fixRAgent is maintenance triage for property managers, landlords and the companies that run buildings.** Connect an AI assistant to the remote MCP server at **`https://fixragent.com/mcp`** (nothing to install) and give it one photo a resident sent: you get back a Triage Profile with what it is, how urgent it is (one of four words: EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to call, and a line to say to the resident.
+
+Made by AR Logic LLC, Saint Marys, Ohio. Website: [fixragent.com](https://fixragent.com). Setup for each assistant: [fixragent.com/connect-ai](https://fixragent.com/connect-ai.html). Agents installing this server: read [`llms-install.md`](llms-install.md).
 
 ## Start here: the remote server (nothing to install)
 
@@ -24,7 +26,7 @@ claude mcp add --transport http fixragent https://fixragent.com/mcp
 
 **Gemini CLI:** see [Gemini CLI](#gemini-cli) below.
 
-It is also listed in the [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=fixragent) as `io.github.Russ4102/fixragent`.
+It is also listed in the [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=fixragent) as `io.github.Russ4102/fixragent`. This repo's [`server.json`](server.json) is a copy of that entry (the remote server, version 1.0.1); there is no npm package. The entry is published from [`registry/server.json`](https://github.com/Russ4102/fixragent-claude-plugin/blob/main/registry/server.json) in the plugin repo; change that copy first.
 
 Anything happening right now that needs emergency services (fire, a gas smell, someone hurt) is a 911 call, not a tool call.
 
@@ -286,5 +288,7 @@ The contract case compares the tool's `core` fields with `components.schemas.Tri
 - [Postman collection](https://fixragent.com/docs/fixragent-triage-api.postman_collection.json)
 - [Agents quickstart](https://fixragent.com/docs/AGENTS-QUICKSTART.txt)
 - [llms.txt](https://fixragent.com/llms.txt)
+- [`llms-install.md`](llms-install.md) — install steps written for an AI agent (Cline and others)
+- [`CITATION.cff`](CITATION.cff) — how to cite this repository · [`logo.png`](logo.png) — 400×400 logo for directories
 
 MIT licence. Made by AR Logic LLC.
