@@ -9,7 +9,7 @@ There are two ways to connect. **Use option 1** unless the client cannot reach a
 - URL: `https://fixragent.com/mcp`
 - Transport: streamable HTTP
 - Tools: `try_sample`, `assess_property_photo`, `get_triage_profile`
-- Key: optional. Without one, `try_sample` works and `assess_property_photo` reads up to 3 real photos per connection in a rolling 24 hours (shared across keyless callers up to a daily ceiling); past that it returns a stored SAMPLE result and says so. `get_triage_profile` needs a key. A free key is issued at https://fixragent.com/docs#key.
+- Key: optional. Without one, `try_sample` works and `assess_property_photo` reads up to 3 real photos per connection in a rolling 24 hours (shared across keyless callers up to a daily ceiling); past that it returns a stored SAMPLE result and says so. `get_triage_profile` needs no key. A free key is issued at https://fixragent.com/docs#key.
 
 ### Cline
 
