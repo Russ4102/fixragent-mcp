@@ -238,7 +238,7 @@ These are the API's guards, in the order they are checked. When one stops you, t
 - 60 requests a day on the shared demo key.
 - A ceiling of twenty dollars a day on what the demo can spend on our side, counted per warm server. Past it the API answers 503 and spends nothing; the budget resets at 00:00 UTC.
 - Photos: at least 1 KB and at most 3 MB decoded. The photo travels base64 inside a JSON body and the platform caps the body at 4.5 MB, so 3 MB of photo is the ceiling.
-- A fast triage runs three reads and returns in about 25 seconds (measured 13–14 Sep 2026 on production, `config=fast`; each read took 5.4 to 5.7 seconds).
+- A fast triage runs three reads; give it up to 60 seconds.
 - A deep read is five reads; give it up to 90 seconds.
 
 ## What the tool says when it fails
