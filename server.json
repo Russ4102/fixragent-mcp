@@ -1,38 +1,28 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.Russ4102/fixragent-mcp",
-  "title": "fixRAgent triage",
-  "description": "One tool, triage_photo: a maintenance photo in, the fixed JSON triage out, from fixragent.com.",
-  "repository": {
-    "url": "https://github.com/Russ4102/fixragent-mcp",
-    "source": "github"
-  },
-  "version": "0.1.0",
-  "websiteUrl": "https://fixragent.com/docs?source=listing-mcp-registry",
-  "packages": [
+  "name": "io.github.Russ4102/fixragent",
+  "title": "fixRAgent maintenance triage",
+  "description": "Assess a property maintenance photo: what it is, how urgent, which trade to call.",
+  "version": "1.0.1",
+  "websiteUrl": "https://fixragent.com/docs?source=listing-mcp-registry-remote",
+  "icons": [
     {
-      "registryType": "npm",
-      "registryBaseUrl": "https://registry.npmjs.org",
-      "identifier": "fixragent-mcp",
-      "version": "0.1.0",
-      "runtimeHint": "npx",
-      "transport": {
-        "type": "stdio"
-      },
-      "environmentVariables": [
+      "src": "https://fixragent.com/icon-512.png",
+      "mimeType": "image/png",
+      "sizes": ["512x512"]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://fixragent.com/mcp",
+      "headers": [
         {
-          "name": "FIXRAGENT_API_KEY",
-          "description": "Your demo key, requested at https://fixragent.com/docs#key. Sent as the x-triage-key header on every call.",
-          "isRequired": true,
+          "name": "x-triage-key",
+          "description": "Your fixRAgent key, issued free at https://fixragent.com/docs#key. Optional. Without it, try_sample works and assess_property_photo reads up to 3 real photos per caller in a rolling 24 hours (under a shared daily ceiling); a key lifts that cap.",
+          "isRequired": false,
           "isSecret": true,
           "format": "string"
-        },
-        {
-          "name": "FIXRAGENT_IMAGE_DIR",
-          "description": "The one folder image_path may read photos from. Unset, image_path is off and only image_base64 works.",
-          "isRequired": false,
-          "isSecret": false,
-          "format": "filepath"
         }
       ]
     }

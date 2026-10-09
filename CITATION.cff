@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you cite or reference this software, please cite it as below."
+type: software
+title: "fixragent-mcp: fixRAgent maintenance triage for property managers (MCP server)"
+abstract: >-
+  fixRAgent is maintenance triage for property managers, landlords and the
+  companies that run buildings. One photo of something in a building becomes a
+  Triage Profile: what the asset is, whether a fault is visible, how urgent it
+  is in one of four words (EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade
+  to call, and a line to say to the resident. The remote MCP server runs at
+  https://fixragent.com/mcp; this repository holds its registry entry and an
+  older one-file stdio server.
+authors:
+  - given-names: William
+    family-names: Johnson
+    affiliation: AR Logic LLC
+  - given-names: Ali
+    family-names: Johnson
+    affiliation: AR Logic LLC
+  - name: AR Logic LLC
+    city: Saint Marys
+    region: Ohio
+    country: US
+    website: "https://fixragent.com"
+repository-code: "https://github.com/Russ4102/fixragent-mcp"
+url: "https://fixragent.com"
+license: MIT
+keywords:
+  - mcp
+  - model-context-protocol
+  - property-management
+  - maintenance
+  - triage
