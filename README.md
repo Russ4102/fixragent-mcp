@@ -12,7 +12,7 @@ The server runs at **`https://fixragent.com/mcp`** (streamable HTTP). It has thr
 |---|---|---|
 | `try_sample` | returns a stored assessment of a sample photo from fixRAgent's test set, labelled SAMPLE | no; spends nothing |
 | `assess_property_photo` | reads one photo (`image_base64` with `mime_type`, or `image`: a file reference with an https `download_url` and a `file_id`) and returns the fixed triage | no key: up to 3 real reads per connection in a rolling 24 hours, shared across keyless callers up to a daily ceiling; past that it returns the SAMPLE. With a free key: 60 a day |
-| `get_triage_profile` | reads a saved assessment back by its `diagnosis_id` | no; calls no model |
+| `get_triage_profile` | reads a saved assessment back by its `diagnosis_id` | yes (a free key); calls no model and spends none of the key's daily allowance |
 
 A free key is issued at [fixragent.com/docs#key](https://fixragent.com/docs#key). Send it as the `x-triage-key` header, an `Authorization: Bearer` header, or `?k=` on the server URL. A call with no key of its own (keyless `assess_property_photo`, and every `get_triage_profile` read) also counts against 20 requests an hour per address; an issued key is judged by the key (its own per-minute burst and daily limit), and `try_sample` has its own per-address counter.
 
@@ -25,6 +25,18 @@ claude mcp add --transport http fixragent https://fixragent.com/mcp
 **Claude, ChatGPT, Cursor, VS Code:** add a custom connector (remote MCP server) with the URL `https://fixragent.com/mcp`. A step-by-step guide and one-click buttons for each are on [fixragent.com/connect-ai.html](https://fixragent.com/connect-ai.html).
 
 **Gemini CLI:** see [Gemini CLI](#gemini-cli) below.
+
+**Smithery:** listed as [`williamjohnson4102/fixragent`](https://smithery.ai/server/williamjohnson4102/fixragent). Smithery's gateway passes requests through to `https://fixragent.com/mcp`; the optional key is the one setting (`triageKey`, sent as the `x-triage-key` header). The settings schema Smithery shows is [`smithery/config-schema.json`](smithery/config-schema.json).
+
+**Transport:** streamable HTTP only, at `https://fixragent.com/mcp`. Discovery (`initialize`, `tools/list`, `ping`) needs no key. The local `server.js` below speaks stdio.
+
+### Usage
+
+1. Ask the assistant to call `try_sample`. It returns a stored result for a sample photo, labelled SAMPLE, so you can see the shape of a Triage Profile before sending anything of your own.
+2. Give it a photo a resident sent, with the problem in the resident's own words: "Use fixRAgent to assess this photo. The resident says water is pooling under the water heater." It calls `assess_property_photo` and answers with what the asset is, the urgency word, the trade to call, the line to say to the resident and a `share_url` for the Triage Profile.
+3. Later, `get_triage_profile` with the `diagnosis_id` (or the last part of a `fixragent.com/c/` link) reads the same profile back.
+
+All three tools carry MCP annotations: `try_sample` and `get_triage_profile` are read-only and idempotent; `assess_property_photo` is not read-only (it stores the Triage Profile and its cleaned photo) and is not destructive.
 
 It is also listed in the [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=fixragent) as `io.github.Russ4102/fixragent`. This repo's [`server.json`](server.json) is a copy of that entry (the remote server, version 1.0.1); there is no npm package. The entry is published from [`registry/server.json`](https://github.com/Russ4102/fixragent-claude-plugin/blob/main/registry/server.json) in the plugin repo; change that copy first.
 
@@ -289,6 +301,7 @@ The contract case compares the tool's `core` fields with `components.schemas.Tri
 - [Agents quickstart](https://fixragent.com/docs/AGENTS-QUICKSTART.txt)
 - [llms.txt](https://fixragent.com/llms.txt)
 - [`llms-install.md`](llms-install.md) — install steps written for an AI agent (Cline and others)
+- [`smithery/config-schema.json`](smithery/config-schema.json) — the optional key as Smithery's connection setting
 - [`CITATION.cff`](CITATION.cff) — how to cite this repository · [`logo.png`](logo.png) — 400×400 logo for directories
 
 MIT licence. Made by AR Logic LLC.
