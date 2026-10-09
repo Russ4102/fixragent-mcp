@@ -26,7 +26,7 @@ claude mcp add --transport http fixragent https://fixragent.com/mcp
 
 **Gemini CLI:** see [Gemini CLI](#gemini-cli) below.
 
-It is also listed in the [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=fixragent) as `io.github.Russ4102/fixragent`. This repo's [`server.json`](server.json) is a copy of that entry (the remote server, version 1.0.1); there is no npm package.
+It is also listed in the [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=fixragent) as `io.github.Russ4102/fixragent`. This repo's [`server.json`](server.json) is a copy of that entry (the remote server, version 1.0.1); there is no npm package. The entry is published from [`registry/server.json`](https://github.com/Russ4102/fixragent-claude-plugin/blob/main/registry/server.json) in the plugin repo; change that copy first.
 
 Anything happening right now that needs emergency services (fire, a gas smell, someone hurt) is a 911 call, not a tool call.
 
