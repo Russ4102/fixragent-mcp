@@ -4,7 +4,7 @@
   "description": "fixRAgent maintenance triage for property managers. Remote server at https://fixragent.com/mcp with three tools: try_sample, assess_property_photo, get_triage_profile. No key needed to start. This package is the older one-file stdio server (one tool, triage_photo).",
   "mcpName": "io.github.Russ4102/fixragent-mcp",
   "license": "MIT",
-  "author": "ARLogic LLC",
+  "author": "AR Logic LLC",
   "homepage": "https://fixragent.com/docs",
   "repository": {
     "type": "git",
