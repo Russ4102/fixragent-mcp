@@ -28,7 +28,7 @@ claude mcp add --transport http fixragent https://fixragent.com/mcp
 
 **Smithery:** listed as [`williamjohnson4102/fixragent`](https://smithery.ai/server/williamjohnson4102/fixragent). Smithery's gateway passes requests through to `https://fixragent.com/mcp`; the optional key is the one setting (`triageKey`, sent as the `x-triage-key` header). The settings schema Smithery shows is [`smithery/config-schema.json`](smithery/config-schema.json).
 
-**Transport:** streamable HTTP only, at `https://fixragent.com/mcp`. Discovery (`initialize`, `tools/list`, `ping`) needs no key. The local `server.js` below speaks stdio.
+**Transport:** streamable HTTP at `https://fixragent.com/mcp`. Discovery (`initialize`, `tools/list`, `ping`) needs no key. The local `server.js` below speaks stdio and lists the same three tools.
 
 ### Usage
 
@@ -44,14 +44,16 @@ Anything happening right now that needs emergency services (fire, a gas smell, s
 
 ## The local stdio server (optional)
 
-The rest of this README covers `server.js`, an older one-file stdio server with one tool, `triage_photo`, in front of `https://fixragent.com/api/triage`. It needs a key. Use it only if your client cannot reach a remote server.
+`server.js` is a one-file stdio server that lists **the same three tools** as the remote server (`try_sample`, `assess_property_photo`, `get_triage_profile`) and forwards each call to `https://fixragent.com/mcp`. Use it if your client or directory runs local servers only (Glama builds and inspects this one); otherwise the remote server above needs nothing installed.
 
-- One file, `server.js`. No runtime dependencies. Node 20 or newer.
+- One file, `server.js`. No runtime dependencies. Node 20 or newer. Version 0.2.0.
+- `tools/list` answers offline and with no key: the three definitions (name, title, description, input and output schemas, annotations) are a static copy of the remote's `tools/list`, read 14 Oct 2026. The test compares the copy with the live server and fails when they drift.
+- `tools/call` for the three tools is a JSON-RPC `tools/call` POSTed to `https://fixragent.com/mcp`; the remote's result (or its JSON-RPC error) comes back unchanged. A JSON reply and an SSE reply are both read.
+- The key is optional. If `FIXRAGENT_API_KEY` is set, it is sent as the `x-triage-key` header; it is never written to a file, stdout or stderr. With no key the call is made anyway and the remote decides: `try_sample` and `get_triage_profile` need none, and keyless `assess_property_photo` has the allowance described above, then returns the SAMPLE.
 - Speaks MCP over stdio in both eras: the `initialize` handshake every shipping client uses today (2025-11-25 back to 2024-11-05) and the per-request `_meta` form of the 2026-07-28 revision (`server/discover`, `resultType`).
-- The key is read from the `FIXRAGENT_API_KEY` environment variable and sent as the `x-triage-key` header. It is never written to a file, stdout or stderr.
-- `FIXRAGENT_API_URL` (optional) points the tool at another base, such as the mock below; the default is `https://fixragent.com`.
-- `FIXRAGENT_IMAGE_DIR` (optional) is the one folder `image_path` may read photos from. **Unset, `image_path` is off** and only `image_base64` works. See [Reading photo files](#reading-photo-files).
-- Every call carries `variant: source:mcp`, so its traffic is counted as channel `mcp`, on its own line beside the web card and direct API calls (channel `api`).
+- `FIXRAGENT_API_URL` (optional) points it at another base; the MCP endpoint is `<base>/mcp`. The default is `https://fixragent.com`.
+- `FIXRAGENT_IMAGE_DIR` (optional) is the one folder from which `assess_property_photo` may read a photo named by `image_path`, an argument local to this server. **Unset, `image_path` is off** and the photo goes as `image_base64` (with `mime_type`) or `image`, as on the remote. See [Reading photo files](#reading-photo-files).
+- The older tool `triage_photo` (in front of `https://fixragent.com/api/triage`, key required) is still callable by name for existing setups, but it is no longer listed. See [The older tool](#the-older-tool-triage_photo-unlisted).
 
 ## Install
 
@@ -59,15 +61,17 @@ The install is one file: `server.js`.
 
 ```sh
 mkdir -p ~/fixragent-mcp
-curl -fsSL https://fixragent.com/mcp/server.js -o ~/fixragent-mcp/server.js
-node ~/fixragent-mcp/server.js --check
+curl -fsSL https://raw.githubusercontent.com/Russ4102/fixragent-mcp/main/server.js -o ~/fixragent-mcp/server.js
+node ~/fixragent-mcp/server.js --version
 ```
+
+The copy served at `https://fixragent.com/mcp/server.js` was still the older 0.1.0 (one tool) on 14 Oct 2026; `--version` says which one you have.
 
 `--check` prints whether the key is set and whether fixragent.com answers. It never prints the key.
 
 ### Claude Desktop
 
-Edit `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`; Windows: `%APPDATA%\Claude\claude_desktop_config.json`), then restart Claude Desktop.
+Edit `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`; Windows: `%APPDATA%\Claude\claude_desktop_config.json`), then restart Claude Desktop. The `env` block is optional.
 
 ```json
 {
@@ -75,7 +79,7 @@ Edit `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/
     "fixragent": {
       "command": "node",
       "args": ["/absolute/path/to/fixragent-mcp/server.js"],
-      "env": { "FIXRAGENT_API_KEY": "your demo key" }
+      "env": { "FIXRAGENT_API_KEY": "your key" }
     }
   }
 }
@@ -84,7 +88,9 @@ Edit `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/
 ### Claude Code
 
 ```sh
-claude mcp add fixragent -e FIXRAGENT_API_KEY=your-demo-key -- node /absolute/path/to/fixragent-mcp/server.js
+claude mcp add fixragent -- node /absolute/path/to/fixragent-mcp/server.js
+# with a key:
+claude mcp add fixragent -e FIXRAGENT_API_KEY=your-key -- node /absolute/path/to/fixragent-mcp/server.js
 ```
 
 ### Cursor
@@ -97,11 +103,15 @@ Create `.cursor/mcp.json` in the project (or `~/.cursor/mcp.json` for every proj
     "fixragent": {
       "command": "node",
       "args": ["/absolute/path/to/fixragent-mcp/server.js"],
-      "env": { "FIXRAGENT_API_KEY": "your demo key" }
+      "env": { "FIXRAGENT_API_KEY": "your key" }
     }
   }
 }
 ```
+
+### Glama (and other directories that build the server)
+
+The `Dockerfile` copies `server.js` and runs `node server.js`; nothing is installed. In Glama's settings: build steps `[]`, CMD arguments `["mcp-proxy", "--", "node", "server.js"]`. No environment variable is needed for `tools/list`.
 
 ### Gemini CLI
 
@@ -114,13 +124,25 @@ gemini extensions config fixragent   # paste your key; it is stored in the syste
 
 The key goes out as the `x-triage-key` header. Without it, Gemini lists the same three tools and the keyless allowance above applies: up to 3 real reads per connection in a rolling 24 hours, then the SAMPLE.
 
+## The tools (stdio)
+
+The three tools are the remote's, word for word; their full descriptions and schemas are in the remote's `tools/list` and in `REMOTE_TOOLS` in `server.js`.
+
+| tool | arguments | notes |
+|---|---|---|
+| `try_sample` | none | "Needs no key and no input, reads no photo and spends nothing." The result is labelled SAMPLE |
+| `assess_property_photo` | `image_base64` + `mime_type`, or `image` (`download_url`, `file_id`); optional `problem_text` (at most 1,200 characters), `reporter` (`resident` · `assessor` · `technician`), `depth` (`fast` · `deep`) | plus `image_path`, local to this server (below) |
+| `get_triage_profile` | `diagnosis_id` | "Read only: it never re-reads the photo, never calls the model and spends nothing from the daily allowance." |
+
+`image_path` (assess_property_photo only): a file inside the `FIXRAGENT_IMAGE_DIR` folder, read by this server and sent as `image_base64` with its `mime_type` (taken from the file's first bytes when not given); `image_path` itself is not sent. JPEG, PNG or WebP, 1 KB to 3 MB. Give one of `image_path`, `image_base64` or `image`.
+
 ## The key
 
 Ask at [fixragent.com/docs#key](https://fixragent.com/docs#key), or email legal@fixragent.com with one line on what you are building, and a person replies with your key.
 
-Without a key the tool answers, in words, that no key is set and that nothing was sent.
+The three tools work without a key (the remote decides what a keyless call gets). `triage_photo`, the older unlisted tool, needs one: without it, it answers, in words, that no key is set and that nothing was sent.
 
-To wire up a client before a key arrives, point the tool at the mock, which replays captured replies ([details](https://fixragent.com/docs#mock)). The mock reads no key, and the tool sends only when one is set, so give it a placeholder. In the client config above, the `env` block becomes:
+To wire up `triage_photo` before a key arrives, point the server at the mock, which replays captured replies ([details](https://fixragent.com/docs#mock)). The mock reads no key, and the tool sends only when one is set, so give it a placeholder. In the client config above, the `env` block becomes:
 
 ```json
 "env": { "FIXRAGENT_API_URL": "https://b1442b0b-4a7a-4135-ab4d-9c4b9c1ab0d2.mock.pstmn.io", "FIXRAGENT_API_KEY": "placeholder" }
@@ -134,9 +156,9 @@ python3 -c "from PIL import Image, ImageOps; im = ImageOps.exif_transpose(Image.
 
 The reply is a captured triage, and its `share_url` points at that captured `diagnosis_id`. When your key arrives, remove `FIXRAGENT_API_URL` and put the key in `FIXRAGENT_API_KEY`.
 
-## The tool
+## The older tool: `triage_photo` (unlisted)
 
-`triage_photo`
+`triage_photo` is the one tool the 0.1.0 server listed. It is no longer in `tools/list`, but a client configured to call it by name still can. It calls `https://fixragent.com/api/triage` directly and needs a key. New setups should use `assess_property_photo`.
 
 | input | type | notes |
 |---|---|---|
@@ -151,7 +173,7 @@ Give `image_path` or `image_base64`, never both.
 
 ### Reading photo files
 
-The tool's arguments are written by the model, and a model can be steered by text it has read (a web page, an email, a file: a prompt injection). If `image_path` could name any file, a steered model could name a private key or a `.env` file and the server would send its bytes to the API. So `image_path` is **off by default**. To turn it on, name one folder:
+This applies to `image_path` on both `assess_property_photo` and `triage_photo`. The tools' arguments are written by the model, and a model can be steered by text it has read (a web page, an email, a file: a prompt injection). If `image_path` could name any file, a steered model could name a private key or a `.env` file and the server would send its bytes to the API. So `image_path` is **off by default**. To turn it on, name one folder:
 
 ```json
 "env": { "FIXRAGENT_API_KEY": "your demo key", "FIXRAGENT_IMAGE_DIR": "/Users/me/fixragent-photos" }
@@ -184,7 +206,7 @@ The result is the API's reply, unchanged, plus two links built from `diagnosis_i
 
 The tool returns the JSON both as `structuredContent` and as text, and declares an `outputSchema` a client can validate against.
 
-## A worked example
+## A worked example (triage_photo)
 
 The server runs with `FIXRAGENT_IMAGE_DIR=/Users/me/fixragent-photos`. A person says, in Claude Desktop: *"Triage the photo toilet-tank.jpg."* The client calls:
 
@@ -230,9 +252,9 @@ An abridged reply, from a production response captured 14 Sep 2026 (three reads,
 
 The agent can then say what the card would say: WHENEVER — healthy, cosmetic, or not a building asset; no dispatch is owed; all three reads agreed — and hand over `share_url`.
 
-## Limits
+## Limits (triage_photo)
 
-These are the API's guards, in the order they are checked. When one stops you, the tool says which, in a sentence, with the seconds to wait taken from the `Retry-After` header.
+These are the guards of `/api/triage` (the older tool), in the order they are checked. The three remote tools have the limits described at the top of this README. When one stops you, the tool says which, in a sentence, with the seconds to wait taken from the `Retry-After` header.
 
 - 20 requests an hour from one address.
 - 60 requests a day on the shared demo key.
@@ -241,7 +263,7 @@ These are the API's guards, in the order they are checked. When one stops you, t
 - A fast triage runs three reads; give it up to 60 seconds.
 - A deep read is five reads; give it up to 90 seconds.
 
-## What the tool says when it fails
+## What triage_photo says when it fails
 
 Each failure has its own sentence.
 
@@ -277,19 +299,21 @@ Every uploaded photo has its metadata stripped — EXIF, XMP, IPTC and the other
 
 ## Privacy Policy
 
-This server sends the photo and the text you give it to `https://fixragent.com/api/triage` and nothing else; it keeps no copy, writes no log, and reads no file at all unless `FIXRAGENT_IMAGE_DIR` is set, and then only the image file named in `image_path` inside that folder. What fixragent.com does with what it receives is in the privacy policy at [https://fixragent.com/privacy](https://fixragent.com/privacy). Contact: legal@fixragent.com.
+This server sends the arguments of each call (the photo and the text you give it) to `https://fixragent.com/mcp`, or to `https://fixragent.com/api/triage` for `triage_photo`, and nothing else; it keeps no copy, writes no log, and reads no file at all unless `FIXRAGENT_IMAGE_DIR` is set, and then only the image file named in `image_path` inside that folder. What fixragent.com does with what it receives is in the privacy policy at [https://fixragent.com/privacy](https://fixragent.com/privacy). Contact: legal@fixragent.com.
 
 ## Test it
 
 ```sh
 npm install            # dev dependency only: the official SDK, used as the reference client
-npm test               # a local stub replays captured API replies; no key, no spend, no rows
+npm test               # a local stub replays captured API and MCP replies; no key, no spend, no rows
 npm run test:live -- --photo ./photo.jpg   # adds a wrong-key 401 on production and one real triage
 ```
 
-The harness has three canaries (`MCP_TEST_CANARY=401-as-200`, `MCP_TEST_CANARY=drop-core`, `MCP_TEST_CANARY=drift`) that make a case go red on purpose, so each check has been seen to fail.
+The harness has five canaries (`MCP_TEST_CANARY=401-as-200`, `drop-core`, `drift`, `tool-drift`, `wrong-id`) that make a case go red on purpose, so each check has been seen to fail.
 
-The contract case compares the tool's `core` fields with `components.schemas.TriageCore` in the published spec, `https://fixragent.com/openapi.json` (one GET, no photo, no key). `MCP_TEST_OPENAPI=<file or URL>` points it at another copy. If the spec cannot be read the case FAILS; `MCP_TEST_OFFLINE=1` turns that into an explicit SKIP.
+The remote-copy case reads `tools/list` from `https://fixragent.com/mcp` (no key, no photo) and fails when any of the three static definitions differs from it. `MCP_TEST_REMOTE=<URL>` points it at another server.
+
+The contract case compares the tool's `core` fields with `components.schemas.TriageCore` in the published spec, `https://fixragent.com/openapi.json` (one GET, no photo, no key). `MCP_TEST_OPENAPI=<file or URL>` points it at another copy. If the spec or the remote cannot be read the case FAILS; `MCP_TEST_OFFLINE=1` turns that into an explicit SKIP.
 
 `MCP_TEST_SERVER=<path to another server.js>` runs the same cases against another copy, such as a copy with one guard removed, to show that guard's cases go red.
 
