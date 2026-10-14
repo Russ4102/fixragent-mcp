@@ -46,7 +46,7 @@ If the user has a key, add it as a header (never put the key in the URL or in a 
 
 ## Option 2: the local stdio server (`server.js`)
 
-Use this only if the client cannot reach a remote server. It is an older one-file server with **one** tool, `triage_photo`, in front of `https://fixragent.com/api/triage`. It **needs a key** (`FIXRAGENT_API_KEY`). It is not published on npm; install it from this repository or from fixragent.com.
+Use this only if the client cannot reach a remote server. It is a one-file server that lists the **same three tools** (`try_sample`, `assess_property_photo`, `get_triage_profile`) and forwards each call to `https://fixragent.com/mcp`, returning the result unchanged. The key is **optional**, as on the remote: if `FIXRAGENT_API_KEY` is set it is sent as the `x-triage-key` header. It is not published on npm; install it from this repository.
 
 Requirements: Node 20 or newer. No runtime dependencies.
 
@@ -54,14 +54,14 @@ Requirements: Node 20 or newer. No runtime dependencies.
 
    ```sh
    mkdir -p ~/fixragent-mcp
-   curl -fsSL https://fixragent.com/mcp/server.js -o ~/fixragent-mcp/server.js
+   curl -fsSL https://raw.githubusercontent.com/Russ4102/fixragent-mcp/main/server.js -o ~/fixragent-mcp/server.js
    ```
 
    or `git clone https://github.com/Russ4102/fixragent-mcp ~/fixragent-mcp`
 
-2. Check it: `FIXRAGENT_API_KEY=THE_USER'S_KEY node ~/fixragent-mcp/server.js --check` prints whether the key is set and whether fixragent.com answers. It never prints the key.
+2. Check it: `node ~/fixragent-mcp/server.js --version` should print `0.2.0` or later. `--check` prints whether a key is set and whether fixragent.com answers; it never prints the key.
 
-3. Add it to `cline_mcp_settings.json`, with the absolute path to `server.js`:
+3. Add it to `cline_mcp_settings.json`, with the absolute path to `server.js` (the `env` block only if the user has a key):
 
    ```json
    {
@@ -77,9 +77,11 @@ Requirements: Node 20 or newer. No runtime dependencies.
    }
    ```
 
+4. Check that it works the same way as option 1: list the tools (exactly `try_sample`, `assess_property_photo`, `get_triage_profile`), then call `try_sample`.
+
 Optional environment variables:
-- `FIXRAGENT_IMAGE_DIR`: the one folder `image_path` may read photos from. Unset, `image_path` is off and only `image_base64` works. Leave it unset unless the user names a folder.
-- `FIXRAGENT_API_URL`: another API base, such as the mock described in the README. Default `https://fixragent.com`.
+- `FIXRAGENT_IMAGE_DIR`: the one folder from which `assess_property_photo` may read a photo named by `image_path` (an argument local to this server). Unset, `image_path` is off and the photo goes as `image_base64` with `mime_type`, or as `image`. Leave it unset unless the user names a folder.
+- `FIXRAGENT_API_URL`: another base; the MCP endpoint is `<base>/mcp`. Default `https://fixragent.com`.
 
 ## Rules for the agent using these tools
 

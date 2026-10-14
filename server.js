@@ -1,29 +1,34 @@
 #!/usr/bin/env node
 'use strict';
 /**
- * fixragent-mcp — one MCP tool, `triage_photo`, in front of https://fixragent.com/api/triage.
+ * fixragent-mcp — the three tools of the remote server https://fixragent.com/mcp (try_sample, assess_property_photo,
+ * get_triage_profile), over stdio, for clients and directories that run a local server (Glama builds and inspects
+ * this one). The three definitions are a static copy of the remote's tools/list, so tools/list answers offline with
+ * no key; tools/call forwards the call to the remote's tools/call (JSON-RPC over HTTP POST) and returns its result
+ * unchanged. The older tool, triage_photo (in front of https://fixragent.com/api/triage), is still callable for
+ * existing users but is not listed.
  *
  * Zero runtime dependencies. Node 20 or newer. Speaks the Model Context Protocol over stdio:
  *   - the legacy era every shipping client uses today (an `initialize` handshake; revisions
  *     2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05 — the set the official SDK 1.30.0 supports), and
  *   - the modern era (revision 2026-07-28: per-request `_meta`, `server/discover`, `resultType`),
- *   so a client of either kind gets the same tool. Spec read 13 Sep 2026:
+ *   so a client of either kind gets the same tools. Spec read 13 Sep 2026:
  *   https://modelcontextprotocol.io/specification/2026-07-28 and /specification/2025-11-25/basic/lifecycle.
  *
  * The key never lives in this file. It is read from the FIXRAGENT_API_KEY environment variable at
- * call time, sent as the x-triage-key header, and never written to stdout or stderr.
+ * call time, sent as the x-triage-key header (the header the remote names in its own replies), and never written
+ * to stdout or stderr. With no key, the three tools are called anyway and the remote decides (try_sample and
+ * get_triage_profile need none; assess_property_photo has a small keyless allowance, then returns the SAMPLE).
  *
- * What this tool does: it routes the job. It returns the API's triage — what the photo shows, one of four urgency
- * words, which trade — and a link to the card. Gas, water near electrics and exposed wiring go straight to a licensed trade.
- *
- * FIXRAGENT_API_URL (optional) points the tool at another base, such as the Postman mock; the default is https://fixragent.com.
+ * FIXRAGENT_API_URL (optional) points the server at another base; the remote MCP endpoint is <base>/mcp and
+ * triage_photo's is <base>/api/triage. The default base is https://fixragent.com.
  */
 
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
-const SERVER = { name: 'fixragent-mcp', title: 'fixRAgent triage', version: '0.1.0', websiteUrl: 'https://fixragent.com/docs' };
+const SERVER = { name: 'fixragent-mcp', title: 'fixRAgent maintenance triage', version: '0.2.0', websiteUrl: 'https://fixragent.com/docs' };
 const MODERN_VERSIONS = ['2026-07-28'];
 const LEGACY_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const META_VERSION = 'io.modelcontextprotocol/protocolVersion';
@@ -60,13 +65,17 @@ function networkCode(e) {
   return typeof c === 'string' && /^[A-Z][A-Z0-9_]*$/.test(c) ? c : 'the request did not complete';
 }
 
+// The remote's own instructions (initialize on https://fixragent.com/mcp, read 14 Oct 2026), then one sentence on
+// how this stdio copy reaches it.
 const INSTRUCTIONS =
-  'One tool, triage_photo. Give it a photo of something in a building (an appliance, a fitting, a pipe, a panel) ' +
-  'and, if you have them, the problem in the reporter\'s own words. You get back what it is, whether a fault is ' +
-  'visible, one of four urgency words (EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to call, a line to say ' +
-  'to the tenant, and a share_url for the card. Each call spends one of the demo key\'s 60 requests a day. ' +
-  'The key comes from the FIXRAGENT_API_KEY environment variable; request one at https://fixragent.com/docs#key. ' +
-  'The reply routes the job: what the photo shows, one of four urgency words, which trade. Gas, water near electrics and exposed wiring go straight to a licensed trade.';
+  'fixRAgent assesses one photo of something in a building. assess_property_photo takes the photo and, if given, ' +
+  'the problem in the reporter\'s own words; it returns what the asset is, whether a fault is visible, one of four ' +
+  'urgency words (EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to call, a line to say to the resident, and a ' +
+  'share_url for the Triage Profile. try_sample returns a stored example result labelled SAMPLE; say plainly that it ' +
+  'is a sample and not the user\'s photo. get_triage_profile reads a saved result back by its id and calls no model. ' +
+  'Anything happening right now that needs emergency services (fire, gas, someone hurt) is a 911 call, not a tool ' +
+  'call. Setup and keys: https://fixragent.com/docs. ' +
+  'This stdio server forwards each call to https://fixragent.com/mcp, with the key from FIXRAGENT_API_KEY when one is set.';
 
 // ── the tool ────────────────────────────────────────────────────────────────
 // core fields and enums mirror openapi.json components.schemas.TriageCore (20 fields). mcp/test/run.mjs
@@ -323,6 +332,408 @@ async function triagePhoto(args) {
 
 function toolError(msg) { return { content: [{ type: 'text', text: msg }], isError: true }; }
 
+// ── the three tools of https://fixragent.com/mcp ──────────────────────────────
+// A static copy of the remote's tools/list (read 14 Oct 2026, remote serverInfo version 1.0.1): name, title,
+// description, inputSchema, outputSchema and annotations, verbatim. The remote's _meta (its ui:// widget template
+// and openai/fileParams) is left out: this server serves no resources. test/run.mjs compares this copy with the live
+// tools/list and fails when the two drift (reflex rule 11: a fact recorded in two places drifts).
+const REMOTE_TOOLS = [
+  {
+    "name": "try_sample",
+    "title": "Try a sample assessment (no key needed)",
+    "description": "Returns a stored fixRAgent assessment of a sample photo from fixRAgent's test set (an HVAC air handler and furnace), labelled SAMPLE, plus how to get a free key. Needs no key and no input, reads no photo and spends nothing. The result is a sample, not an assessment of anyone's own photo.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "sample": {
+          "type": "boolean",
+          "description": "Always true: this is a stored example, not a read of any photo you sent."
+        },
+        "label": {
+          "type": "string",
+          "description": "One sentence saying what this is."
+        },
+        "photo": {
+          "type": "object",
+          "description": "What the sample photo shows, in words. The photo itself is not served."
+        },
+        "captured_utc": {
+          "type": "string",
+          "description": "When the real engine produced this answer."
+        },
+        "diagnosis_id": {
+          "type": "string"
+        },
+        "engine_version": {
+          "type": "string"
+        },
+        "rubric_version": {
+          "type": "string"
+        },
+        "config_id": {
+          "type": "string"
+        },
+        "core": {
+          "type": "object",
+          "description": "The fixed contract, exactly as the engine returned it for the sample photo."
+        },
+        "agreement": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "n reads ran, k agreed."
+        },
+        "next_step": {
+          "type": "string",
+          "description": "How to get a free key and assess your own photo."
+        }
+      },
+      "required": [
+        "sample",
+        "label",
+        "core",
+        "next_step"
+      ]
+    },
+    "annotations": {
+      "title": "Try a sample assessment (no key needed)",
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "assess_property_photo",
+    "title": "Assess a property maintenance photo",
+    "description": "Assesses a photo of something in a building — an appliance, a boiler, a pipe, a water heater, an electrical panel, a fitting, a leak, damage — and reports what it is, how urgent it is and which trade it needs. Returns the fixed contract: what the asset is, whether a fault is visible, one of four urgency words (EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to call, a line to say to the resident, and how many independent reads agreed. One call reads the photo on fixragent.com and spends one request from the key's daily allowance. Sent with NO key, it reads the real photo up to 3 times per connection in a rolling 24 hours (a small free allowance, shared across every keyless caller up to a daily ceiling); past either limit it returns fixRAgent's stored sample result, labelled SAMPLE, and says how to get a free key with no such limit. Scope: photos of building assets and faults. It does not assess people, pets, injuries, rashes, medical or veterinary questions, vehicles, food, documents, screenshots or photos of screens. It is not an emergency service: a fire, a gas smell or hissing gas, a carbon-monoxide alarm sounding, water pouring onto live electrics or anyone hurt needs the local emergency number (911 in the US), not a photo assessment. It does not price repairs, book contractors or decide insurance claims; it routes the job, it does not quote or dispatch it.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "image_base64": {
+          "type": "string",
+          "description": "The photo, base64-encoded. A data:image/jpeg;base64, prefix is accepted and stripped. JPEG, PNG or WebP, at most 3 MB once decoded, at least 1 KB. Location metadata is removed on our server before the photo is hashed, read or stored; it is NOT removed before it leaves the caller. Give either image_base64 (with mime_type) or image, not both."
+        },
+        "image": {
+          "type": "object",
+          "description": "The photo as a file reference: an object whose download_url is an https URL of a JPEG, PNG or WebP image (at most 3 MB, at least 1 KB). fixragent.com downloads it once, under the same limits and the same location-metadata removal as image_base64. Give either image or image_base64, not both.",
+          "properties": {
+            "download_url": {
+              "type": "string",
+              "description": "An https URL the photo can be downloaded from."
+            },
+            "file_id": {
+              "type": "string",
+              "description": "The host's id for the file. Not used to fetch it."
+            },
+            "mime_type": {
+              "type": "string",
+              "description": "Optional. If given, it must match the downloaded bytes."
+            },
+            "file_name": {
+              "type": "string",
+              "description": "Optional. Not used."
+            }
+          },
+          "required": [
+            "download_url",
+            "file_id"
+          ]
+        },
+        "mime_type": {
+          "type": "string",
+          "enum": [
+            "image/jpeg",
+            "image/png",
+            "image/webp"
+          ],
+          "description": "The photo's type: needed with image_base64, optional with image. Must match the bytes; a mismatch is refused, not guessed."
+        },
+        "problem_text": {
+          "type": "string",
+          "maxLength": 1200,
+          "description": "What the person reported, in their own words (\"no hot water since Tuesday\"). Optional. Treated as a reported symptom to be checked against the photo, never as ground truth: the reply says whether the report and the photo agree."
+        },
+        "reporter": {
+          "type": "string",
+          "enum": [
+            "resident",
+            "assessor",
+            "technician"
+          ],
+          "default": "resident",
+          "description": "Who took the photo. Changes how the explanation is worded, not the verdict."
+        },
+        "depth": {
+          "type": "string",
+          "enum": [
+            "fast",
+            "deep"
+          ],
+          "default": "fast",
+          "description": "fast reads the photo three times, deep five, and the reply reports how many agreed. deep is slower and spends more of the day's budget."
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "diagnosis_id": {
+          "type": "string",
+          "description": "Server-minted id for this assessment; the key for the profile and the outcome."
+        },
+        "share_url": {
+          "type": "string",
+          "description": "The Triage Profile as a page a resident or contractor can open."
+        },
+        "outcome_url": {
+          "type": "string",
+          "description": "Two taps to tell us what actually fixed it."
+        },
+        "engine_version": {
+          "type": "string"
+        },
+        "rubric_version": {
+          "type": "string"
+        },
+        "config_id": {
+          "type": "string",
+          "description": "An id beginning \"fallback-\" means a hardcoded config answered, not a measured one."
+        },
+        "core": {
+          "type": "object",
+          "description": "The fixed contract: asset, fault, tier, trade_required, resident_explanation and the rest."
+        },
+        "agreement": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "n reads ran, k agreed. k is null on a tie."
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sample": {
+          "type": "boolean",
+          "description": "true = no key was sent: this is the stored SAMPLE, NOT an assessment of the photo you sent. Absent on a real assessment."
+        }
+      },
+      "required": [
+        "diagnosis_id",
+        "share_url",
+        "core"
+      ]
+    },
+    "annotations": {
+      "title": "Assess a property maintenance photo",
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    }
+  },
+  {
+    "name": "get_triage_profile",
+    "title": "Read back a saved triage profile",
+    "description": "Returns a saved fixRAgent assessment by its diagnosis_id (from an assessment, or the last part of a fixragent.com/c/<id> link). Read only: it never re-reads the photo, never calls the model and spends nothing from the daily allowance. It takes one id and returns one assessment with no contact details of any kind, the same assessment anyone with its fixragent.com/c/ link can open. It needs no key; if a key is sent, it must be a valid one. Reads are limited to 20 an hour per address, shared with assessments.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "diagnosis_id": {
+          "type": "string",
+          "description": "The UUID of a saved assessment, or the last path segment of a fixragent.com/c/<id> link."
+        }
+      },
+      "required": [
+        "diagnosis_id"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "diagnosis_id": {
+          "type": "string"
+        },
+        "share_url": {
+          "type": "string"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "engine_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rubric_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "config_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "agreement": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "core": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "diagnosis_id",
+        "share_url",
+        "core"
+      ]
+    },
+    "annotations": {
+      "title": "Read back a saved triage profile",
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    }
+  }
+];
+
+// One local addition to assess_property_photo: image_path, read by THIS server (same guard as triage_photo: off
+// unless FIXRAGENT_IMAGE_DIR names a folder) and sent to the remote as image_base64 with its mime_type. It is not a
+// field of the remote tool and is removed before the call is forwarded.
+const LOCAL_IMAGE_PATH = {
+  type: 'string',
+  description: 'Local to this stdio server, not a field of the remote tool: a path to the photo inside the folder ' +
+    'named by FIXRAGENT_IMAGE_DIR (off when that is not set). The file is read here and sent as image_base64 with its ' +
+    'mime_type. JPEG, PNG or WebP, 1 KB to 3 MB. Give image_path, image_base64 or image, only one.'
+};
+(function addImagePath() {
+  const t = REMOTE_TOOLS.find((x) => x.name === 'assess_property_photo');
+  t.inputSchema.properties.image_path = LOCAL_IMAGE_PATH;
+})();
+const REMOTE_NAMES = REMOTE_TOOLS.map((t) => t.name);
+const MCP_URL = API_BASE + '/mcp';
+const REMOTE_PROTOCOL = '2025-06-18';
+
+// assess_property_photo with image_path: read the file under the guard, then send image_base64 + mime_type.
+function localArguments(name, args) {
+  args = args && typeof args === 'object' && !Array.isArray(args) ? Object.assign({}, args) : {};
+  if (name !== 'assess_property_photo' || args.image_path === undefined) return { args: args };
+  if (typeof args.image_path !== 'string' || !args.image_path) return { error: 'image_path must be a path to a photo file.' };
+  if (args.image_base64 !== undefined || args.image !== undefined) return { error: 'Give image_path, image_base64 or image, only one.' };
+  const photo = readPhotoFile(args.image_path);
+  if (photo.error) return { error: photo.error };
+  const kind = sniffImage(Buffer.from(photo.base64.slice(0, 64), 'base64'));
+  if (['image/jpeg', 'image/png', 'image/webp'].indexOf(kind) === -1) {
+    return { error: 'That file is ' + kind + '; assess_property_photo takes JPEG, PNG or WebP. Nothing was sent.' };
+  }
+  delete args.image_path;
+  args.image_base64 = photo.base64;
+  if (args.mime_type === undefined) args.mime_type = kind;
+  return { args: args };
+}
+
+// The reply may be one JSON body or an SSE stream (Accept names both); either way, find the JSON-RPC message
+// answering our id.
+function pickReply(contentType, text, id) {
+  const msgs = [];
+  if (/text\/event-stream/i.test(contentType || '')) {
+    text.split(/\r?\n\r?\n/).forEach((ev) => {
+      const data = ev.split(/\r?\n/).filter((l) => l.indexOf('data:') === 0).map((l) => l.slice(5).replace(/^ /, '')).join('\n');
+      if (data) { try { msgs.push(JSON.parse(data)); } catch (_) {} }
+    });
+  } else {
+    try { const j = JSON.parse(text); (Array.isArray(j) ? j : [j]).forEach((m) => msgs.push(m)); } catch (_) {}
+  }
+  return msgs.find((m) => m && m.id === id && (m.result !== undefined || m.error !== undefined)) || null;
+}
+
+// Forward one tools/call to the remote and hand back its result unchanged (or its JSON-RPC error, unchanged).
+async function forwardCall(name, rawArgs) {
+  const local = localArguments(name, rawArgs);
+  if (local.error) return { result: toolError(local.error) };
+  const key = cleanKey(process.env[KEY_ENV]);
+  if (key && !HEADER_SAFE.test(key)) return { result: toolError(KEY_UNSENDABLE) };
+  const headers = {
+    'content-type': 'application/json',
+    'accept': 'application/json, text/event-stream',
+    'mcp-protocol-version': REMOTE_PROTOCOL,
+    'user-agent': USER_AGENT
+  };
+  if (key) headers['x-triage-key'] = key;
+  const rid = 1;
+  let res;
+  try {
+    res = await fetch(MCP_URL, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ jsonrpc: '2.0', id: rid, method: 'tools/call', params: { name: name, arguments: local.args } }),
+      signal: AbortSignal.timeout(CALL_TIMEOUT_MS)
+    });
+  } catch (e) {
+    // e.message is never quoted: for a header problem Node writes the header value (the key) into it.
+    if (e && e.name === 'TimeoutError') return { result: toolError('Could not reach ' + MCP_URL + ' (no reply within ' + (CALL_TIMEOUT_MS / 1000) + ' seconds). Check the network and try again.') };
+    if (/header/i.test(String(e && e.message))) return { result: toolError(KEY_UNSENDABLE) };
+    return { result: toolError('Could not reach ' + MCP_URL + ' (' + networkCode(e) + '). Check the network and try again.') };
+  }
+  const text = await res.text();
+  const msg = pickReply(res.headers.get('content-type'), text, rid);
+  if (msg && msg.error) return { error: msg.error };
+  if (msg && msg.result && typeof msg.result === 'object') return { result: msg.result };
+  let body = null; try { body = JSON.parse(text); } catch (_) {}
+  if (res.status !== 200) return { result: toolError(describeFailure(res.status, body, res.headers)) };
+  return { result: toolError(API_HOST + ' answered ' + res.status + ' but the reply held no JSON-RPC result for this call. Try once more.') };
+}
+
 // ── JSON-RPC over stdio, both eras ───────────────────────────────────────────
 function write(msg) { process.stdout.write(JSON.stringify(msg) + '\n'); }
 function log(s) { if (process.env.FIXRAGENT_MCP_DEBUG) process.stderr.write('[fixragent-mcp] ' + s + '\n'); }
@@ -375,11 +786,13 @@ async function handleRequest(req) {
       return finish({});
     case 'tools/list':
       if (!modern && !legacyInitialized) log('tools/list before initialize; answering anyway');
-      return finish({ tools: [TOOL] });
+      return finish({ tools: REMOTE_TOOLS });  // triage_photo is callable but not listed
     case 'tools/call': {
-      if (params.name !== TOOL.name) return rpcError(id, -32602, 'Unknown tool: ' + String(params.name));
-      const result = await triagePhoto(params.arguments);
-      return finish(result);
+      if (params.name === TOOL.name) return finish(await triagePhoto(params.arguments));
+      if (REMOTE_NAMES.indexOf(params.name) === -1) return rpcError(id, -32602, 'Unknown tool: ' + String(params.name));
+      const fwd = await forwardCall(params.name, params.arguments);
+      if (fwd.error) return { jsonrpc: '2.0', id: id, error: fwd.error };
+      return finish(fwd.result);
     }
     default:
       return rpcError(id, -32601, 'Method not found: ' + String(req.method));
@@ -444,7 +857,7 @@ if (require.main === module) {
   const argv = process.argv.slice(2);
   if (argv.indexOf('--help') !== -1 || argv.indexOf('-h') !== -1) {
     process.stdout.write(
-      'fixragent-mcp ' + SERVER.version + ' — one MCP tool, triage_photo, over stdio.\n' +
+      'fixragent-mcp ' + SERVER.version + ' — the three tools of https://fixragent.com/mcp (try_sample, assess_property_photo, get_triage_profile) over stdio.\n' +
       'Run it from an MCP client (Claude Desktop, Claude Code, Cursor); see README.md.\n' +
       '  --check   say whether ' + KEY_ENV + ' is set and whether ' + API_BASE + ' answers\n' +
       '  --version print the version\n');
@@ -455,4 +868,4 @@ if (require.main === module) {
   else serve();
 }
 
-module.exports = { sniffImage, validatePhotoBytes, IMAGE_DIR_ENV, TOOL, CORE_PROPERTIES, describeFailure, cleanKey, handleMessage, MODERN_VERSIONS, LEGACY_VERSIONS, SERVER };
+module.exports = { REMOTE_TOOLS, LOCAL_IMAGE_PATH, pickReply, sniffImage, validatePhotoBytes, IMAGE_DIR_ENV, TOOL, CORE_PROPERTIES, describeFailure, cleanKey, handleMessage, MODERN_VERSIONS, LEGACY_VERSIONS, SERVER };

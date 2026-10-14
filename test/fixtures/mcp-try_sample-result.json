@@ -1,0 +1,81 @@
+{
+  "_source": "tools/call try_sample on https://fixragent.com/mcp, captured 14 Oct 2026, no key",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "SAMPLE: a stored fixRAgent result for a sample photo from fixRAgent's test set (HVAC air handler and furnace unit with connected ductwork and piping), produced by the real engine on 2026-09-13. It is not a read of any photo you sent. To assess your own photo, get a free key at https://fixragent.com/docs#key and add it to this connector (x-triage-key header, Authorization: Bearer, or ?k=<key> on the server URL).\n\n{\"sample\":true,\"label\":\"SAMPLE: a stored fixRAgent result for a sample photo from fixRAgent's test set (HVAC air handler and furnace unit with connected ductwork and piping), produced by the real engine on 2026-09-13. It is not a read of any photo you sent.\",\"photo\":{\"described_as\":\"HVAC air handler and furnace unit with connected ductwork and piping\",\"why_not_shown\":\"The photo is a user upload held under a licence that covers processing only, so it is described, not served.\"},\"captured_utc\":\"2026-09-13T12:46:57.418Z\",\"diagnosis_id\":\"cce64cbc-97b2-410d-a761-2a8d65d570ad\",\"engine_version\":\"engine-v2-vote-1.0.0\",\"rubric_version\":\"v1.1-2026-09-11\",\"config_id\":\"fast-a1v11-gemini-3.5-flash-lite-2026-09-12\",\"core\":{\"is_building_asset\":true,\"asset_type\":\"HVAC Air Handler and Furnace\",\"asset_category\":\"HVAC\",\"photo_subject\":\"HVAC air handler and furnace unit with connected ductwork and piping\",\"report_photo_agreement\":null,\"fault_detected\":false,\"fault_visible_in_photo\":false,\"fault_summary\":\"\",\"fault_classes\":[],\"severity\":\"P4\",\"tier\":\"WHENEVER\",\"criterion_1_fired\":false,\"tier_forced_by\":null,\"visible_wiring\":false,\"water_near_electrical\":false,\"safety_hazard\":false,\"hazard_detail\":null,\"trade_required\":null,\"confidence\":1,\"resident_explanation\":\"Your HVAC system is currently in a healthy state with no visible faults or active damage.\"},\"agreement\":{\"mode\":\"fast\",\"n\":3,\"k\":3,\"decided\":true,\"votes\":{\"fault\":0,\"no_fault\":3,\"no_verdict\":0},\"re_voted\":false,\"reported_round\":1,\"rounds\":[{\"round\":1,\"n\":3,\"reads_parsed\":3,\"read_failures\":[],\"k\":3,\"decided\":true,\"votes\":{\"fault\":0,\"no_fault\":3,\"no_verdict\":0},\"reported\":true}],\"reads_attempted_total\":3,\"majority_verdict\":false,\"need\":2,\"delivered_matches_majority\":true,\"applicable\":true},\"next_step\":\"To assess your own photo, get a free key at https://fixragent.com/docs#key and add it to this connector (x-triage-key header, Authorization: Bearer, or ?k=<key> on the server URL).\"}"
+      }
+    ],
+    "structuredContent": {
+      "sample": true,
+      "label": "SAMPLE: a stored fixRAgent result for a sample photo from fixRAgent's test set (HVAC air handler and furnace unit with connected ductwork and piping), produced by the real engine on 2026-09-13. It is not a read of any photo you sent.",
+      "photo": {
+        "described_as": "HVAC air handler and furnace unit with connected ductwork and piping",
+        "why_not_shown": "The photo is a user upload held under a licence that covers processing only, so it is described, not served."
+      },
+      "captured_utc": "2026-09-13T12:46:57.418Z",
+      "diagnosis_id": "cce64cbc-97b2-410d-a761-2a8d65d570ad",
+      "engine_version": "engine-v2-vote-1.0.0",
+      "rubric_version": "v1.1-2026-09-11",
+      "config_id": "fast-a1v11-gemini-3.5-flash-lite-2026-09-12",
+      "core": {
+        "is_building_asset": true,
+        "asset_type": "HVAC Air Handler and Furnace",
+        "asset_category": "HVAC",
+        "photo_subject": "HVAC air handler and furnace unit with connected ductwork and piping",
+        "report_photo_agreement": null,
+        "fault_detected": false,
+        "fault_visible_in_photo": false,
+        "fault_summary": "",
+        "fault_classes": [],
+        "severity": "P4",
+        "tier": "WHENEVER",
+        "criterion_1_fired": false,
+        "tier_forced_by": null,
+        "visible_wiring": false,
+        "water_near_electrical": false,
+        "safety_hazard": false,
+        "hazard_detail": null,
+        "trade_required": null,
+        "confidence": 1,
+        "resident_explanation": "Your HVAC system is currently in a healthy state with no visible faults or active damage."
+      },
+      "agreement": {
+        "mode": "fast",
+        "n": 3,
+        "k": 3,
+        "decided": true,
+        "votes": {
+          "fault": 0,
+          "no_fault": 3,
+          "no_verdict": 0
+        },
+        "re_voted": false,
+        "reported_round": 1,
+        "rounds": [
+          {
+            "round": 1,
+            "n": 3,
+            "reads_parsed": 3,
+            "read_failures": [],
+            "k": 3,
+            "decided": true,
+            "votes": {
+              "fault": 0,
+              "no_fault": 3,
+              "no_verdict": 0
+            },
+            "reported": true
+          }
+        ],
+        "reads_attempted_total": 3,
+        "majority_verdict": false,
+        "need": 2,
+        "delivered_matches_majority": true,
+        "applicable": true
+      },
+      "next_step": "To assess your own photo, get a free key at https://fixragent.com/docs#key and add it to this connector (x-triage-key header, Authorization: Bearer, or ?k=<key> on the server URL)."
+    }
+  }
+}

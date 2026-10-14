@@ -9,8 +9,11 @@
  *   MCP_TEST_CANARY=401-as-200 node test/run.mjs    the stub answers 200 to a wrong key → the 401 case MUST go red
  *   MCP_TEST_CANARY=drop-core  node test/run.mjs    the stub drops a core field → the shape case MUST go red
  *   MCP_TEST_CANARY=drift      node test/run.mjs    one TriageCore field is dropped from the spec → the contract case MUST go red
+ *   MCP_TEST_CANARY=tool-drift node test/run.mjs    one property is dropped from the live remote tools/list → the remote-copy case MUST go red
+ *   MCP_TEST_CANARY=wrong-id   node test/run.mjs    the stub /mcp answers under another JSON-RPC id → the forwarding cases MUST go red
+ *   MCP_TEST_REMOTE=<URL>                           the remote MCP whose tools/list the copy is compared with (default https://fixragent.com/mcp)
  *   MCP_TEST_OPENAPI=<file or URL>                  the spec the contract case reads (default https://fixragent.com/openapi.json)
- *   MCP_TEST_OFFLINE=1                              the contract case prints SKIP instead of FAIL when the spec cannot be read
+ *   MCP_TEST_OFFLINE=1                              the contract and remote-copy cases print SKIP instead of FAIL when they cannot read the live copy
  *
  * Two clients are used on purpose: the official SDK (@modelcontextprotocol/sdk 1.30.0, legacy `initialize` era,
  * which also validates structuredContent against the tool's outputSchema) and raw JSON-RPC lines for the modern
@@ -37,6 +40,8 @@ const FIX = (n) => JSON.parse(fs.readFileSync(path.join(HERE, 'fixtures', n), 'u
 // printed SKIP on every run (BLOCK-452 finding 11). The published spec is the one clients read, so that is the default.
 const OPENAPI = process.env.MCP_TEST_OPENAPI || 'https://fixragent.com/openapi.json';
 const OFFLINE = process.env.MCP_TEST_OFFLINE === '1';
+const REMOTE = process.env.MCP_TEST_REMOTE || 'https://fixragent.com/mcp';
+const THREE = ['try_sample', 'assess_property_photo', 'get_triage_profile'];
 const argv = process.argv.slice(2);
 const LIVE = argv.includes('--live');
 const PHOTO = argv.includes('--photo') ? argv[argv.indexOf('--photo') + 1] : null;
@@ -59,6 +64,7 @@ function startStub() {
       try { body = JSON.parse(raw); } catch (_) { body = {}; }
       const url = new URL(req.url, 'http://stub');
       const key = req.headers['x-triage-key'];
+      if (url.pathname === '/mcp') return mcpReply(req, res, body, key);
       requests.push({
         url: req.url, key: key, config: url.searchParams.get('config'),
         has_image: typeof body.image === 'string', image_len: (body.image || '').length,
@@ -85,8 +91,44 @@ function startStub() {
       res.end(JSON.stringify(fx.body));
     });
   });
+  // The remote MCP endpoint, /mcp: answers tools/call for the three tools the way https://fixragent.com/mcp does.
+  // try_sample: the captured production result, as one JSON body. assess_property_photo: a result built from the
+  // captured fast 200, as an SSE stream (the other reply form the Accept header allows). get_triage_profile: an id
+  // the stub does not know gets a JSON-RPC error; 'http-500' gets a bare HTTP 500 with no JSON-RPC in it.
+  const mcpCalls = [];
+  function mcpReply(req, res, body, key) {
+    const p = (body && body.params) || {};
+    mcpCalls.push({ method: body && body.method, name: p.name, args: p.arguments, key: key, accept: req.headers.accept,
+      protocol: req.headers['mcp-protocol-version'], ua: req.headers['user-agent'] });
+    const id = CANARY === 'wrong-id' ? 999 : body.id;
+    const json = (status, obj) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
+    if (!body || body.method !== 'tools/call') return json(200, { jsonrpc: '2.0', id: id, error: { code: -32601, message: 'stub: tools/call only' } });
+    if (p.name === 'try_sample') return json(200, { jsonrpc: '2.0', id: id, result: FIX('mcp-try_sample-result.json').result });
+    if (p.name === 'assess_property_photo') {
+      const b = FIX('fast-200.json').body;
+      const sc = Object.assign({}, b, { share_url: 'https://fixragent.com/c/' + b.diagnosis_id, outcome_url: 'https://fixragent.com/o/' + b.diagnosis_id });
+      if (!key) sc.sample = true;
+      const result = { content: [{ type: 'text', text: JSON.stringify(sc) }], structuredContent: sc };
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store' });
+      res.write(': stub comment line\n\n');
+      res.end('event: message\ndata: ' + JSON.stringify({ jsonrpc: '2.0', id: id, result: result }) + '\n\n');
+      return;
+    }
+    if (p.name === 'get_triage_profile') {
+      const did = p.arguments && p.arguments.diagnosis_id;
+      if (did === 'http-500') { res.writeHead(500, { 'content-type': 'text/plain' }); res.end('stub: boom'); return; }
+      if (did === 'cce64cbc-97b2-410d-a761-2a8d65d570ad') {
+        const t = FIX('mcp-try_sample-result.json').result.structuredContent;
+        const sc = { diagnosis_id: did, share_url: 'https://fixragent.com/c/' + did, created_at: t.captured_utc, engine_version: t.engine_version,
+          rubric_version: t.rubric_version, config_id: t.config_id, agreement: t.agreement, core: t.core };
+        return json(200, { jsonrpc: '2.0', id: id, result: { content: [{ type: 'text', text: JSON.stringify(sc) }], structuredContent: sc } });
+      }
+      return json(200, { jsonrpc: '2.0', id: id, error: { code: -32602, message: 'stub: no saved assessment with that id', data: { diagnosis_id: did } } });
+    }
+    return json(200, { jsonrpc: '2.0', id: id, error: { code: -32602, message: 'Unknown tool: ' + p.name } });
+  }
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve({
-    url: 'http://127.0.0.1:' + server.address().port, requests, close: () => server.close()
+    url: 'http://127.0.0.1:' + server.address().port, requests, mcpCalls, close: () => server.close()
   })));
 }
 
@@ -126,7 +168,7 @@ function rawSession(env) {
   };
 }
 // one tools/call on a fresh process, stdout and stderr both kept, so a leak on either stream is visible
-function rawCall(env, args) {
+function rawCall(env, args, toolName) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [SERVER_JS], { env: childEnv(env), stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '', err = '';
@@ -142,7 +184,7 @@ function rawCall(env, args) {
     child.stdin.end([
       { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'raw', version: '0' } } },
       { jsonrpc: '2.0', method: 'notifications/initialized' },
-      { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'triage_photo', arguments: args } }
+      { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: toolName || 'triage_photo', arguments: args } }
     ].map((m) => JSON.stringify(m)).join('\n') + '\n');
   });
 }
@@ -180,15 +222,107 @@ async function stubCases() {
 
   console.log('# stub mode — ' + stub.url + (CANARY ? '   CANARY=' + CANARY + ' (a case MUST go red)' : ''));
 
-  // tools/list through the SDK
+  // tools/list through the SDK: exactly the three remote tools; triage_photo is callable but not listed
   await withSdk(base, async (client) => {
     const list = await client.listTools();
-    const t = list.tools[0];
-    ok(list.tools.length === 1 && t.name === 'triage_photo', 'tools/list: exactly one tool, triage_photo');
-    ok(typeof t.title === 'string' && t.annotations && t.annotations.readOnlyHint === false && t.annotations.destructiveHint === false, 'tool carries title and readOnlyHint/destructiveHint annotations');
-    ok(t.inputSchema && Array.isArray(t.inputSchema.required) && t.inputSchema.required.join() === 'mime_type', 'inputSchema requires mime_type only');
-    ok(t.outputSchema && t.outputSchema.properties && t.outputSchema.properties.core, 'outputSchema declares core');
+    const names = list.tools.map((t) => t.name);
+    ok(names.join() === THREE.join(), 'tools/list: exactly three tools, ' + THREE.join(', ') + ' (' + names.join(', ') + ')');
+    ok(names.indexOf('triage_photo') === -1, 'tools/list: triage_photo is not listed');
+    const by = Object.fromEntries(list.tools.map((t) => [t.name, t]));
+    ok(THREE.every((n) => by[n] && typeof by[n].title === 'string' && by[n].description && by[n].inputSchema && by[n].outputSchema && by[n].annotations),
+      'tools/list: each tool carries title, description, inputSchema, outputSchema and annotations');
+    ok(by.try_sample && by.try_sample.annotations.readOnlyHint === true && by.get_triage_profile.annotations.readOnlyHint === true &&
+      by.assess_property_photo.annotations.readOnlyHint === false && by.assess_property_photo.annotations.destructiveHint === false,
+      'tools/list: try_sample and get_triage_profile read-only; assess_property_photo not read-only, not destructive');
+    ok(by.get_triage_profile && by.get_triage_profile.inputSchema.required.join() === 'diagnosis_id', 'tools/list: get_triage_profile requires diagnosis_id');
+    const ap = by.assess_property_photo && by.assess_property_photo.inputSchema.properties;
+    ok(ap && ap.image_base64 && ap.image && ap.mime_type && ap.problem_text && ap.reporter && ap.depth && ap.image_path,
+      'tools/list: assess_property_photo takes the remote\'s six arguments plus the local image_path');
   });
+
+  // forwarded calls: the three tools go to <base>/mcp as JSON-RPC tools/call and the result comes back unchanged
+  {
+    const capture = FIX('mcp-try_sample-result.json').result;
+    await withSdk(base, async (client) => {
+      await client.listTools();
+      const n0 = stub.mcpCalls.length;
+      let r, err = null;
+      try { r = await client.callTool({ name: 'try_sample', arguments: {} }); } catch (e) { err = e; }
+      ok(!err && r && JSON.stringify({ content: r.content, structuredContent: r.structuredContent }) === JSON.stringify(capture),
+        'FWD 1: try_sample → the remote\'s result unchanged (JSON reply), accepted by the SDK against outputSchema', err ? err.message : text(r).slice(0, 200));
+      const c = stub.mcpCalls[n0];
+      ok(c && c.method === 'tools/call' && c.name === 'try_sample' && JSON.stringify(c.args) === '{}' && c.key === undefined &&
+        /application\/json/.test(c.accept) && /text\/event-stream/.test(c.accept) && c.protocol === '2025-06-18',
+        'FWD 2: no key set → called anyway, no x-triage-key header; Accept names JSON and SSE', JSON.stringify(c));
+      const r2 = await client.callTool({ name: 'assess_property_photo', arguments: { image_base64: fs.readFileSync(smallPhoto).toString('base64'), mime_type: 'image/jpeg', problem_text: 'Water under the heater.' } });
+      ok(r2 && !r2.isError && r2.structuredContent && r2.structuredContent.sample === true && r2.structuredContent.core,
+        'FWD 3: assess_property_photo with no key → the SSE reply is read and its result returned (stub marks it SAMPLE)', text(r2).slice(0, 200));
+      const c2 = stub.mcpCalls[stub.mcpCalls.length - 1];
+      ok(c2 && c2.args && c2.args.image_base64 === fs.readFileSync(smallPhoto).toString('base64') && c2.args.mime_type === 'image/jpeg' &&
+        c2.args.problem_text === 'Water under the heater.' && Object.keys(c2.args).length === 3, 'FWD 4: the arguments reach the remote exactly as given');
+      let e3 = null;
+      try { await client.callTool({ name: 'get_triage_profile', arguments: { diagnosis_id: 'no-such-id' } }); } catch (e) { e3 = e; }
+      ok(e3 && /no saved assessment with that id/.test(e3.message) && e3.code === -32602, 'FWD 5: a JSON-RPC error from the remote comes back as the same error (code and message)', e3 && e3.message);
+      const r4 = await client.callTool({ name: 'get_triage_profile', arguments: { diagnosis_id: 'cce64cbc-97b2-410d-a761-2a8d65d570ad' } });
+      ok(r4 && !r4.isError && r4.structuredContent && r4.structuredContent.diagnosis_id === 'cce64cbc-97b2-410d-a761-2a8d65d570ad', 'FWD 6: get_triage_profile → the saved profile, accepted against outputSchema', text(r4).slice(0, 200));
+      const r5 = await client.callTool({ name: 'get_triage_profile', arguments: { diagnosis_id: 'http-500' } });
+      ok(r5 && r5.isError === true && /answered 500/.test(text(r5)), 'FWD 7: an HTTP 500 with no JSON-RPC in it → a tool error in plain words', text(r5));
+    });
+    await withSdk(Object.assign({ FIXRAGENT_API_KEY: '"fwd-key"\u200b ' }, base), async (client) => {
+      await client.listTools();
+      await client.callTool({ name: 'try_sample', arguments: {} });
+      const c = stub.mcpCalls[stub.mcpCalls.length - 1];
+      ok(c && c.key === 'fwd-key', 'FWD 8: FIXRAGENT_API_KEY set → sent to the remote as x-triage-key, cleaned the way triage_photo cleans it', JSON.stringify(c && c.key));
+      const n0 = stub.mcpCalls.length;
+      const r = await client.callTool({ name: 'assess_property_photo', arguments: { image_path: 'photo.jpg' } });
+      const c2 = stub.mcpCalls[stub.mcpCalls.length - 1];
+      ok(!r.isError && stub.mcpCalls.length === n0 + 1 && c2.args.image_base64 === fs.readFileSync(smallPhoto).toString('base64') &&
+        c2.args.mime_type === 'image/jpeg' && c2.args.image_path === undefined && r.structuredContent && r.structuredContent.sample === undefined,
+        'FWD 9: image_path inside FIXRAGENT_IMAGE_DIR → read here, sent as image_base64 + sniffed mime_type, image_path removed', JSON.stringify(c2 && Object.keys(c2.args)));
+      const n1 = stub.mcpCalls.length;
+      const r2 = await client.callTool({ name: 'assess_property_photo', arguments: { image_path: secretOutside } });
+      ok(r2.isError === true && /inside the folder/.test(text(r2)) && stub.mcpCalls.length === n1 && text(r2).indexOf(SECRET_LINE) === -1,
+        'FWD 10: image_path outside the folder → refused by the same guard, nothing forwarded', text(r2));
+      const r3 = await client.callTool({ name: 'assess_property_photo', arguments: { image_path: 'photo.jpg', image_base64: 'AAAA' } });
+      ok(r3.isError === true && /only one/.test(text(r3)) && stub.mcpCalls.length === n1, 'FWD 11: image_path with image_base64 → refused, nothing forwarded', text(r3));
+    });
+    {
+      const n0 = stub.mcpCalls.length;
+      const got = await rawCall(Object.assign({ FIXRAGENT_API_KEY: 'LEAK-fwd\nx', FIXRAGENT_MCP_DEBUG: '1' }, base), {}, 'try_sample');
+      ok(got.result && got.result.isError === true && /cannot carry/.test(text(got.result)) && stub.mcpCalls.length === n0 && got.out.indexOf('LEAK-fwd') === -1 && got.err.indexOf('LEAK-fwd') === -1,
+        'FWD 12: a key with a line break → refused before forwarding, the key in neither stdout nor stderr', text(got.result));
+    }
+  }
+
+  // the static copy vs the live remote tools/list (name, title, description, inputSchema, outputSchema, annotations)
+  {
+    let live = null, liveErr = '';
+    try {
+      const r = await fetch(REMOTE, { method: 'POST', signal: AbortSignal.timeout(15000),
+        headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2025-06-18', 'user-agent': 'fixragent-mcp-test' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }) });
+      if (r.status !== 200) throw new Error('HTTP ' + r.status);
+      const { pickReply } = await import(SERVER_JS).then((m) => m.default || m);
+      const msg = pickReply(r.headers.get('content-type'), await r.text(), 1);
+      if (!msg || !msg.result || !Array.isArray(msg.result.tools)) throw new Error('no tools in the reply');
+      live = msg.result.tools;
+    } catch (e) { live = null; liveErr = (e && e.message) || String(e); }
+    if (live && CANARY === 'tool-drift') { const t = live.find((x) => x.name === 'assess_property_photo'); if (t) delete t.inputSchema.properties.depth; }
+    if (!live && OFFLINE) console.log('SKIP  remote copy check: MCP_TEST_OFFLINE=1 and ' + REMOTE + ' could not be read (' + liveErr + ')');
+    else if (!live) ok(false, 'remote copy: read tools/list from ' + REMOTE, liveErr + '. Set MCP_TEST_REMOTE, or MCP_TEST_OFFLINE=1 to skip on purpose');
+    else {
+      console.log('#     remote copy: ' + REMOTE);
+      const { REMOTE_TOOLS } = await import(SERVER_JS).then((m) => m.default || m);
+      ok(live.map((t) => t.name).sort().join() === THREE.slice().sort().join(), 'remote copy: the live server lists exactly the three names (' + live.map((t) => t.name).join(', ') + ')');
+      for (const n of THREE) {
+        const mine = JSON.parse(JSON.stringify(REMOTE_TOOLS.find((t) => t.name === n) || {}));
+        if (mine.inputSchema && mine.inputSchema.properties) delete mine.inputSchema.properties.image_path; // the one local addition
+        const theirs = live.find((t) => t.name === n) || {};
+        const diff = ['name', 'title', 'description', 'inputSchema', 'outputSchema', 'annotations'].filter((k) => JSON.stringify(mine[k]) !== JSON.stringify(theirs[k]));
+        ok(diff.length === 0, 'remote copy: ' + n + ' equals the live definition field for field', 'differs in: ' + diff.join(', '));
+      }
+    }
+  }
 
   // RED A — no key set → plain words, nothing sent
   await withSdk(base, async (client) => {
@@ -265,7 +399,7 @@ async function stubCases() {
     let r, err = null;
     try { r = await call(client, { image_path: smallPhoto, mime_type: 'image/jpeg', problem_text: 'Water on the floor under the heater.' }); }
     catch (e) { err = e; }
-    ok(!err, 'GREEN: the SDK accepted the result against outputSchema (no validation error)', err && err.message);
+    ok(!err, 'GREEN: the SDK call returned without error (triage_photo is unlisted, so the SDK no longer checks it against outputSchema)', err && err.message);
     const sc = r && r.structuredContent;
     ok(r && !r.isError && sc && typeof sc.diagnosis_id === 'string', 'GREEN: 200 → structuredContent with diagnosis_id');
     const coreKeys = sc ? Object.keys(sc.core || {}) : [];
@@ -424,7 +558,9 @@ async function stubCases() {
     const noCaps = await s.send({ jsonrpc: '2.0', id: 3, method: 'tools/list', params: { _meta: { 'io.modelcontextprotocol/protocolVersion': '2026-07-28' } } });
     ok(noCaps.error && noCaps.error.code === -32602, 'modern: missing clientCapabilities → -32602');
     const lst = await s.send({ jsonrpc: '2.0', id: 4, method: 'tools/list', params: { _meta: META } });
-    ok(lst.result && lst.result.resultType === 'complete' && lst.result.tools[0].name === 'triage_photo', 'modern: tools/list → resultType complete');
+    ok(lst.result && lst.result.resultType === 'complete' && lst.result.tools.map((t) => t.name).join() === THREE.join(), 'modern: tools/list → resultType complete, the three tools');
+    const ts = await s.send({ jsonrpc: '2.0', id: 'ts', method: 'tools/call', params: { name: 'try_sample', arguments: {}, _meta: META } });
+    ok(ts.result && ts.result.resultType === 'complete' && ts.result.structuredContent && ts.result.structuredContent.sample === true, 'modern: forwarded try_sample → resultType complete + the remote structuredContent');
     const c = await s.send({ jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'triage_photo', arguments: { image_path: smallPhoto, mime_type: 'image/jpeg' }, _meta: META } });
     ok(c.result && c.result.resultType === 'complete' && c.result.structuredContent && c.result.structuredContent.share_url, 'modern: tools/call → resultType complete + structuredContent');
     const unk = await s.send({ jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'other_tool', arguments: {}, _meta: META } });

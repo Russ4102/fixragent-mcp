@@ -1,7 +1,7 @@
 {
   "name": "fixragent-mcp",
-  "version": "0.1.0",
-  "description": "fixRAgent maintenance triage for property managers. Remote server at https://fixragent.com/mcp with three tools: try_sample, assess_property_photo, get_triage_profile. No key needed to start. This package is the older one-file stdio server (one tool, triage_photo).",
+  "version": "0.2.0",
+  "description": "fixRAgent maintenance triage for property managers. Three tools, the same as the remote server at https://fixragent.com/mcp: try_sample, assess_property_photo, get_triage_profile. This one-file stdio server lists them offline and forwards each call there. No key needed to start.",
   "mcpName": "io.github.Russ4102/fixragent-mcp",
   "license": "MIT",
   "author": "ARLogic LLC",
