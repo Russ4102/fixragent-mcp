@@ -65,16 +65,21 @@ function networkCode(e) {
   return typeof c === 'string' && /^[A-Z][A-Z0-9_]*$/.test(c) ? c : 'the request did not complete';
 }
 
-// The remote's own instructions (initialize on https://fixragent.com/mcp, read 14 Oct 2026), then one sentence on
+// The remote's own instructions (initialize on https://fixragent.com/mcp, read 15 Oct 2026 after fixr #810), then one sentence on
 // how this stdio copy reaches it.
 const INSTRUCTIONS =
   'fixRAgent assesses one photo of something in a building. assess_property_photo takes the photo and, if given, ' +
-  'the problem in the reporter\'s own words; it returns what the asset is, whether a fault is visible, one of four ' +
-  'urgency words (EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to call, a line to say to the resident, and a ' +
-  'share_url for the Triage Profile. try_sample returns a stored example result labelled SAMPLE; say plainly that it ' +
-  'is a sample and not the user\'s photo. get_triage_profile reads a saved result back by its id and calls no model. ' +
-  'Anything happening right now that needs emergency services (fire, gas, someone hurt) is a 911 call, not a tool ' +
-  'call. Setup and keys: https://fixragent.com/docs. ' +
+  'the problem in the reporter\'s own words; it returns what the asset is, whether a fault is visible, one of fou' +
+  'r urgency words (EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to call, a line to say to the resident, a' +
+  'nd a share_url for the Triage Profile. try_sample returns a stored example result labelled SAMPLE; say plainly' +
+  ' that it is a sample and not the user\'s photo. get_triage_profile reads a saved result back by its id and cal' +
+  'ls no model. Anything happening right now that needs emergency services (fire, gas, someone hurt) is a 911 cal' +
+  'l, not a tool call. Only what a tool returned is fixRAgent\'s answer: never write your own assessment, urgency' +
+  ' word or trade and present it as fixRAgent\'s or as following fixRAgent\'s rubric. When no photo reaches asses' +
+  's_property_photo (a description in words is not a photo), nothing is assessed and the reply gives a fixragent.' +
+  'com link where the person adds the photo and sees the full Triage Profile; pass that link on. Setup and keys: ' +
+  'https://fixragent.com/docs.' +
+  ' ' +
   'This stdio server forwards each call to https://fixragent.com/mcp, with the key from FIXRAGENT_API_KEY when one is set.';
 
 // ── the tool ────────────────────────────────────────────────────────────────
@@ -333,7 +338,7 @@ async function triagePhoto(args) {
 function toolError(msg) { return { content: [{ type: 'text', text: msg }], isError: true }; }
 
 // ── the three tools of https://fixragent.com/mcp ──────────────────────────────
-// A static copy of the remote's tools/list (read 14 Oct 2026, remote serverInfo version 1.0.1): name, title,
+// A static copy of the remote's tools/list (read 15 Oct 2026 after fixr #810, remote serverInfo version 1.0.1): name, title,
 // description, inputSchema, outputSchema and annotations, verbatim. The remote's _meta (its ui:// widget template
 // and openai/fileParams) is left out: this server serves no resources. test/run.mjs compares this copy with the live
 // tools/list and fails when the two drift (reflex rule 11: a fact recorded in two places drifts).
@@ -416,7 +421,7 @@ const REMOTE_TOOLS = [
   {
     "name": "assess_property_photo",
     "title": "Assess a property maintenance photo",
-    "description": "Assesses a photo of something in a building — an appliance, a boiler, a pipe, a water heater, an electrical panel, a fitting, a leak, damage — and reports what it is, how urgent it is and which trade it needs. Returns the fixed contract: what the asset is, whether a fault is visible, one of four urgency words (EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to call, a line to say to the resident, and how many independent reads agreed. One call reads the photo on fixragent.com and spends one request from the key's daily allowance. Sent with NO key, it reads the real photo up to 3 times per connection in a rolling 24 hours (a small free allowance, shared across every keyless caller up to a daily ceiling); past either limit it returns fixRAgent's stored sample result, labelled SAMPLE, and says how to get a free key with no such limit. Scope: photos of building assets and faults. It does not assess people, pets, injuries, rashes, medical or veterinary questions, vehicles, food, documents, screenshots or photos of screens. It is not an emergency service: a fire, a gas smell or hissing gas, a carbon-monoxide alarm sounding, water pouring onto live electrics or anyone hurt needs the local emergency number (911 in the US), not a photo assessment. It does not price repairs, book contractors or decide insurance claims; it routes the job, it does not quote or dispatch it.",
+    "description": "Assesses a photo of something in a building — an appliance, a boiler, a pipe, a water heater, an electrical panel, a fitting, a leak, damage — and reports what it is, how urgent it is and which trade it needs. Returns the fixed contract: what the asset is, whether a fault is visible, one of four urgency words (EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to call, a line to say to the resident, and how many independent reads agreed. One call reads the photo on fixragent.com and spends one request from the key's daily allowance. Sent with NO key, it reads the real photo up to 3 times per connection in a rolling 24 hours (a small free allowance, shared across every keyless caller up to a daily ceiling); past either limit it returns fixRAgent's stored sample result, labelled SAMPLE, and says how to get a free key with no such limit. It reads only a real photo: a written description is not a photo and is not assessed. With no photo, or a photo it cannot read, nothing is assessed and the reply gives a fixragent.com link where the person adds the photo and sees the full Triage Profile. An urgency, trade or finding that this call did not return is not fixRAgent's. Scope: photos of building assets and faults. It does not assess people, pets, injuries, rashes, medical or veterinary questions, vehicles, food, documents, screenshots or photos of screens. It is not an emergency service: a fire, a gas smell or hissing gas, a carbon-monoxide alarm sounding, water pouring onto live electrics or anyone hurt needs the local emergency number (911 in the US), not a photo assessment. It does not price repairs, book contractors or decide insurance claims; it routes the job, it does not quote or dispatch it.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -462,7 +467,7 @@ const REMOTE_TOOLS = [
         "problem_text": {
           "type": "string",
           "maxLength": 1200,
-          "description": "What the person reported, in their own words (\"no hot water since Tuesday\"). Optional. Treated as a reported symptom to be checked against the photo, never as ground truth: the reply says whether the report and the photo agree."
+          "description": "What the person reported, in their own words (\"no hot water since Tuesday\"). Optional. Treated as a reported symptom to be checked against the photo, never as ground truth: the reply says whether the report and the photo agree. Sent without a photo, it is not assessed."
         },
         "reporter": {
           "type": "string",
