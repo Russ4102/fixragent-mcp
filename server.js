@@ -427,7 +427,7 @@ const REMOTE_TOOLS = [
       "properties": {
         "image_base64": {
           "type": "string",
-          "description": "The photo, base64-encoded. A data:image/jpeg;base64, prefix is accepted and stripped. JPEG, PNG or WebP, at most 3 MB once decoded, at least 1 KB. Location metadata is removed on our server before the photo is hashed, read or stored; it is NOT removed before it leaves the caller. Give either image_base64 (with mime_type) or image, not both."
+          "description": "The photo, base64-encoded. A data:image/jpeg;base64, prefix is accepted and stripped. JPEG, PNG or WebP, at most 3 MB once decoded, at least 1 KB. Location metadata is removed on our server before the photo is hashed, read or stored; it is NOT removed before it leaves the caller. Give either image_base64 (with mime_type) or image, not both. A full photo written out as base64 by the assistant itself is long and slow to send, and a copy shrunk or turned black and white reads worse than the original; a call with no photo instead returns a link where the person adds the original photo, and that result reads back by its code."
         },
         "image": {
           "type": "object",
