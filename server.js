@@ -338,7 +338,7 @@ async function triagePhoto(args) {
 function toolError(msg) { return { content: [{ type: 'text', text: msg }], isError: true }; }
 
 // ── the three tools of https://fixragent.com/mcp ──────────────────────────────
-// A static copy of the remote's tools/list (read 15 Oct 2026 after fixr #810, remote serverInfo version 1.0.1): name, title,
+// A static copy of the remote's tools/list (read 16 Oct 2026 after fixr #811, remote serverInfo version 1.0.1): name, title,
 // description, inputSchema, outputSchema and annotations, verbatim. The remote's _meta (its ui:// widget template
 // and openai/fileParams) is left out: this server serves no resources. test/run.mjs compares this copy with the live
 // tools/list and fails when the two drift (reflex rule 11: a fact recorded in two places drifts).
@@ -559,13 +559,13 @@ const REMOTE_TOOLS = [
   {
     "name": "get_triage_profile",
     "title": "Read back a saved triage profile",
-    "description": "Returns a saved fixRAgent assessment by its diagnosis_id (from an assessment, or the last part of a fixragent.com/c/<id> link). Read only: it never re-reads the photo, never calls the model and spends nothing from the daily allowance. It takes one id and returns one assessment with no contact details of any kind, the same assessment anyone with its fixragent.com/c/ link can open. It needs no key; if a key is sent, it must be a valid one. Reads are limited to 20 an hour per address, shared with assessments.",
+    "description": "Returns a saved fixRAgent assessment by its diagnosis_id (from an assessment, the last part of a fixragent.com/c/<id> link, or the h- code that comes with a fixragent.com photo link once the photo has been added there; with no photo added yet, it reports that there is no result). Read only: it never re-reads the photo, never calls the model and spends nothing from the daily allowance. It takes one id and returns one assessment with no contact details of any kind, the same assessment anyone with its fixragent.com/c/ link can open. It needs no key; if a key is sent, it must be a valid one. Reads are limited to 20 an hour per address, shared with assessments.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "diagnosis_id": {
           "type": "string",
-          "description": "The UUID of a saved assessment, or the last path segment of a fixragent.com/c/<id> link."
+          "description": "The UUID of a saved assessment, the last path segment of a fixragent.com/c/<id> link, or h- followed by the code from a fixragent.com photo link."
         }
       },
       "required": [
