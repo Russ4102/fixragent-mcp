@@ -338,7 +338,7 @@ async function triagePhoto(args) {
 function toolError(msg) { return { content: [{ type: 'text', text: msg }], isError: true }; }
 
 // ── the three tools of https://fixragent.com/mcp ──────────────────────────────
-// A static copy of the remote's tools/list (read 16 Oct 2026 after fixr #811, remote serverInfo version 1.0.1): name, title,
+// A static copy of the remote's tools/list (read 16 Oct 2026 after fixr #830, remote serverInfo version 1.0.1): name, title,
 // description, inputSchema, outputSchema and annotations, verbatim. The remote's _meta (its ui:// widget template
 // and openai/fileParams) is left out: this server serves no resources. test/run.mjs compares this copy with the live
 // tools/list and fails when the two drift (reflex rule 11: a fact recorded in two places drifts).
@@ -540,13 +540,32 @@ const REMOTE_TOOLS = [
         "sample": {
           "type": "boolean",
           "description": "true = no key was sent: this is the stored SAMPLE, NOT an assessment of the photo you sent. Absent on a real assessment."
+        },
+        "not_assessed": {
+          "type": "boolean",
+          "description": "true = nothing was assessed; there is no fixRAgent urgency, trade or finding. Pass add_photo_url on."
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "no_photo",
+            "photo_not_arrived",
+            "not_added_yet"
+          ]
+        },
+        "add_photo_url": {
+          "type": "string",
+          "description": "fixragent.com page where the person adds the photo and sees the full Triage Profile."
+        },
+        "handoff_id": {
+          "type": "string",
+          "description": "h-<code>: get_triage_profile reads the result back once the photo is added there."
+        },
+        "instruction": {
+          "type": "string",
+          "description": "What to do with a not-assessed reply, and that nothing in it is fixRAgent's."
         }
-      },
-      "required": [
-        "diagnosis_id",
-        "share_url",
-        "core"
-      ]
+      }
     },
     "annotations": {
       "title": "Assess a property maintenance photo",
@@ -634,13 +653,32 @@ const REMOTE_TOOLS = [
         },
         "core": {
           "type": "object"
+        },
+        "not_assessed": {
+          "type": "boolean",
+          "description": "true = nothing was assessed; there is no fixRAgent urgency, trade or finding. Pass add_photo_url on."
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "no_photo",
+            "photo_not_arrived",
+            "not_added_yet"
+          ]
+        },
+        "add_photo_url": {
+          "type": "string",
+          "description": "fixragent.com page where the person adds the photo and sees the full Triage Profile."
+        },
+        "handoff_id": {
+          "type": "string",
+          "description": "h-<code>: get_triage_profile reads the result back once the photo is added there."
+        },
+        "instruction": {
+          "type": "string",
+          "description": "What to do with a not-assessed reply, and that nothing in it is fixRAgent's."
         }
-      },
-      "required": [
-        "diagnosis_id",
-        "share_url",
-        "core"
-      ]
+      }
     },
     "annotations": {
       "title": "Read back a saved triage profile",
