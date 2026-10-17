@@ -338,7 +338,7 @@ async function triagePhoto(args) {
 function toolError(msg) { return { content: [{ type: 'text', text: msg }], isError: true }; }
 
 // ── the three tools of https://fixragent.com/mcp ──────────────────────────────
-// A static copy of the remote's tools/list (read 16 Oct 2026 after fixr #830, remote serverInfo version 1.0.1): name, title,
+// A static copy of the remote's tools/list (read 17 Oct 2026 after fixr #831, remote serverInfo version 1.0.1): name, title,
 // description, inputSchema, outputSchema and annotations, verbatim. The remote's _meta (its ui:// widget template
 // and openai/fileParams) is left out: this server serves no resources. test/run.mjs compares this copy with the live
 // tools/list and fails when the two drift (reflex rule 11: a fact recorded in two places drifts).
@@ -561,6 +561,10 @@ const REMOTE_TOOLS = [
           "type": "string",
           "description": "h-<code>: get_triage_profile reads the result back once the photo is added there."
         },
+        "problem_text": {
+          "type": "string",
+          "description": "On a not-assessed reply: the words the caller sent, handed back so a photo added in the card goes with them."
+        },
         "instruction": {
           "type": "string",
           "description": "What to do with a not-assessed reply, and that nothing in it is fixRAgent's."
@@ -673,6 +677,10 @@ const REMOTE_TOOLS = [
         "handoff_id": {
           "type": "string",
           "description": "h-<code>: get_triage_profile reads the result back once the photo is added there."
+        },
+        "problem_text": {
+          "type": "string",
+          "description": "On a not-assessed reply: the words the caller sent, handed back so a photo added in the card goes with them."
         },
         "instruction": {
           "type": "string",
