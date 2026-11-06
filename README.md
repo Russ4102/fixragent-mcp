@@ -2,7 +2,7 @@
 
 **fixRAgent is maintenance triage for property managers, landlords and the companies that run buildings.** Connect an AI assistant to the remote MCP server at **`https://fixragent.com/mcp`** (nothing to install) and give it one photo a resident sent: you get back a Triage Profile with what it is, how urgent it is (one of four words: EMERGENCY, TODAY, THIS WEEK, WHENEVER), which trade to call, and a line to say to the resident.
 
-Made by AR Logic LLC, Saint Marys, Ohio. Website: [fixragent.com](https://fixragent.com). Setup for each assistant: [fixragent.com/connect-ai](https://fixragent.com/connect-ai.html). Agents installing this server: read [`llms-install.md`](llms-install.md).
+Made by AR Logic LLC, Columbus, Ohio. NARPM member. Website: [fixragent.com](https://fixragent.com). Setup for each assistant: [fixragent.com/connect-ai](https://fixragent.com/connect-ai.html). Agents installing this server: read [`llms-install.md`](llms-install.md).
 
 ## Start here: the remote server (nothing to install)
 
