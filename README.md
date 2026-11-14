@@ -11,7 +11,7 @@ The server runs at **`https://fixragent.com/mcp`** (streamable HTTP). It has thr
 | tool | what it does | key needed? |
 |---|---|---|
 | `try_sample` | returns a stored assessment of a sample photo from fixRAgent's test set, labelled SAMPLE | no; spends nothing |
-| `assess_property_photo` | reads one photo (`image_base64` with `mime_type`, or `image`: a file reference with an https `download_url` and a `file_id`) and returns the fixed triage | no key: up to 3 real reads per connection in a rolling 24 hours, shared across keyless callers up to a daily ceiling; past that it returns the SAMPLE. With a free key: 60 a day |
+| `assess_property_photo` | reads one photo (`image_base64` with `mime_type`, or `image`: a file reference with an https `download_url` and a `file_id`) and returns the fixed triage | no key: up to 3 real reads per connection in a rolling 24 hours, a free allowance shared across keyless callers; with a free key: 60 a day |
 | `get_triage_profile` | reads a saved assessment back by its `diagnosis_id` | no (since 9 Oct 2026); calls no model and spends no daily allowance |
 
 A free key is issued at [fixragent.com/docs#key](https://fixragent.com/docs#key). Send it as the `x-triage-key` header, an `Authorization: Bearer` header, or `?k=` on the server URL. A call with no key of its own (keyless `assess_property_photo`, and every `get_triage_profile` read) also counts against 20 requests an hour per address; an issued key is judged by the key (its own per-minute burst and daily limit), and `try_sample` has its own per-address counter.
@@ -167,7 +167,7 @@ The reply is a captured triage, and its `share_url` points at that captured `dia
 | `mime_type` | `image/jpeg` · `image/png` · `image/webp` | required |
 | `problem_text` | string, at most 1,200 characters | the problem in the reporter's own words; treated as reported symptoms, never as ground truth |
 | `role` | `landlord` (default) · `fixer` | who is asking; changes the wording of the card, not the triage |
-| `config` | `fast` (default) · `deep` | `fast` reads the photo three times on production and `deep` five; both report how many reads agreed, and `agreement.n` is the count that ran — `deep` takes longer and spends more of the day's demo budget |
+| `config` | `fast` (default) · `deep` | `fast` reads the photo three times on production and `deep` five; both report how many reads agreed, and `agreement.n` is the count that ran — `deep` takes a little longer |
 
 Give `image_path` or `image_base64`, never both.
 
@@ -252,14 +252,14 @@ An abridged reply, from a production response captured 14 Sep 2026 (three reads,
 
 The agent can then say what the card would say: WHENEVER — healthy, cosmetic, or not a building asset; no dispatch is owed; all three reads agreed — and hand over `share_url`.
 
-## Limits (triage_photo)
+## Allowances and timing (triage_photo)
 
-These are the guards of `/api/triage` (the older tool), in the order they are checked. The three remote tools have the limits described at the top of this README. When one stops you, the tool says which, in a sentence, with the seconds to wait taken from the `Retry-After` header.
+These are the allowances of `/api/triage` (the older tool). The three remote tools use the allowances described at the top of this README. When an allowance is used up, the tool says so in a sentence, with the seconds to wait taken from the `Retry-After` header.
 
 - 20 requests an hour from one address.
 - 60 requests a day on the shared demo key.
-- A ceiling of twenty dollars a day on what the demo can spend on our side, counted per warm server. Past it the API answers 503 and spends nothing; the budget resets at 00:00 UTC.
-- Photos: at least 1 KB and at most 3 MB decoded. The photo travels base64 inside a JSON body and the platform caps the body at 4.5 MB, so 3 MB of photo is the ceiling.
+- The demo shares a fair-use pool across all callers; if it is ever used up the API answers 503 and the pool refreshes at 00:00 UTC.
+- Photos: at least 1 KB and at most 3 MB decoded. The photo travels base64 inside a JSON body and the platform caps the body at 4.5 MB, so photos up to 3 MB fit.
 - A fast triage runs three reads; give it up to 60 seconds.
 - A deep read is five reads; give it up to 90 seconds.
 
@@ -281,7 +281,7 @@ Each failure has its own sentence.
 | photo under 1 KB (refused locally) | "That photo is under 1 KB (N bytes)… Nothing was sent." |
 | photo over 3 MB (413, or refused locally before sending) | "That photo is larger than 3 MB…" |
 | format that cannot be cleaned of metadata (415) | "That image format is refused (415)… Send a JPEG, PNG or WebP." |
-| the day's budget is spent (503) | "The demo has used its compute budget for today (503). This is a limit on our side, not a problem with your photo…" |
+| the shared pool is used up for the day (503) | "The demo is at capacity for today (503). Your photo is fine. It refreshes at 00:00 UTC." |
 | the mock refused a body over 1 MB (400) | "b1442b0b-….mock.pstmn.io could not use that request (400 badRequest). The API said: …exceeds the 1mb size limit." |
 | the engine gave no usable answer (502) | "fixragent.com could not produce a triage for this photo (502…). Try once more…" |
 

@@ -9,7 +9,7 @@ There are two ways to connect. **Use option 1** unless the client cannot reach a
 - URL: `https://fixragent.com/mcp`
 - Transport: streamable HTTP
 - Tools: `try_sample`, `assess_property_photo`, `get_triage_profile`
-- Key: optional. Without one, `try_sample` works and `assess_property_photo` reads up to 3 real photos per connection in a rolling 24 hours (shared across keyless callers up to a daily ceiling); past that it returns a stored SAMPLE result and says so. `get_triage_profile` needs no key. A free key is issued at https://fixragent.com/docs#key.
+- Key: optional. Without one, `try_sample` works and `assess_property_photo` reads up to 3 real photos per connection in a rolling 24 hours (drawn from a shared fair-use pool); past that it returns a stored SAMPLE result and says so. `get_triage_profile` needs no key. A free key is issued at https://fixragent.com/docs#key.
 
 ### Cline
 
@@ -87,7 +87,7 @@ Optional environment variables:
 
 - Anything happening right now that needs emergency services (fire, a gas smell, someone hurt) is a 911 call, not a tool call.
 - The tools assess photos of building assets and faults only. They do not assess people, pets, injuries, vehicles, food or documents.
-- They do not price repairs, book contractors or decide insurance claims.
+- They route the job; quotes, booking and insurance decisions stay with the user.
 - Start with `try_sample`; do not ask for a key up front. If the user gives a key, put it only where the user chose (the client settings), never in a committed file or in the URL.
 
 More: https://fixragent.com/docs · https://fixragent.com/llms.txt · support@fixragent.com

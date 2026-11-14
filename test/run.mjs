@@ -352,7 +352,7 @@ async function stubCases() {
   await withSdk(Object.assign({ FIXRAGENT_API_KEY: 'fuse-key' }, base), async (client) => {
     await client.listTools();
     const r = await call(client, { image_path: smallPhoto, mime_type: 'image/jpeg' });
-    ok(r.isError === true && /503/.test(text(r)) && /compute budget/.test(text(r)) && /Try again in 57600 seconds/.test(text(r)), 'RED D: fuse → 503 plain words, Retry-After seconds', text(r));
+    ok(r.isError === true && /503/.test(text(r)) && /at capacity/.test(text(r)) && /Try again in 57600 seconds/.test(text(r)), 'RED D: fuse → 503 plain words, Retry-After seconds', text(r));
   });
 
   // RED E — a 3 MB + 1 byte photo is refused before anything is sent

@@ -19,7 +19,7 @@
       "headers": [
         {
           "name": "x-triage-key",
-          "description": "Your fixRAgent key, issued free at https://fixragent.com/docs#key. Optional. Without it, try_sample works and assess_property_photo reads up to 3 real photos per caller in a rolling 24 hours (under a shared daily ceiling); a key lifts that cap.",
+          "description": "Your fixRAgent key, issued free at https://fixragent.com/docs#key. Optional. Without it, try_sample works and assess_property_photo reads up to 3 real photos per caller in a rolling 24 hours (from a shared fair-use pool); a key lifts that cap.",
           "isRequired": false,
           "isSecret": true,
           "format": "string"
