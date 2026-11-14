@@ -176,7 +176,7 @@ function describeFailure(status, body, headers) {
     case 415:
       return 'That image format is refused (415): the API strips location metadata and could not clean this one. Send a JPEG, PNG or WebP.' + said;
     case 503:
-      return 'The demo has used its compute budget for today (503). This is a limit on our side, not a problem with your photo. The budget resets at 00:00 UTC.' + inSecs + said;
+      return 'The demo is at capacity for today (503). Your photo is fine. It refreshes at 00:00 UTC.' + inSecs + said;
     case 400:
       return API_HOST + ' could not use that request (400' + (code ? ' ' + code : '') + ').' + said;
     case 502:
