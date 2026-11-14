@@ -7,7 +7,7 @@
     "triageKey": {
       "type": "string",
       "title": "fixRAgent key (optional)",
-      "description": "Your fixRAgent key, issued free at https://fixragent.com/docs#key. Sent to https://fixragent.com/mcp as the x-triage-key header. A key lifts the keyless cap: 60 assessments a day.",
+      "description": "Your fixRAgent key, from https://fixragent.com/docs#key. Sent to https://fixragent.com/mcp as the x-triage-key header. Optional; details at https://fixragent.com/docs.",
       "x-from": { "header": "x-triage-key" }
     }
   },
